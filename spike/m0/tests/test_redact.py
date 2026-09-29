@@ -43,3 +43,35 @@ def test_aws_and_bearer_and_private_key():
 def test_ordinary_claude_md_prose_is_untouched():
     text = "# Project\n\nRun `pytest -q` before finishing. Never commit the .env file.\n"
     assert redact(text) == (text, {})
+
+
+def test_url_credentials_redacted():
+    out, counts = redact('"args": ["postgresql://neondb_owner:npg_AbC123xyz@ep-cool.neon.tech/db"]')
+    assert "npg_AbC123xyz" not in out
+    assert "postgresql://neondb_owner:[REDACTED:url_credentials]@ep-cool.neon.tech/db" in out
+
+
+def test_jwt_redacted():
+    jwt = "eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.c2lnbmF0dXJlX3ZhbHVlX2hlcmU"
+    out, counts = redact(f'"SUPABASE_SERVICE_ROLE": "{jwt}"')
+    assert jwt not in out and "eyJ" not in out
+
+
+def test_stripe_and_huggingface_tokens():
+    out, _ = redact("sk_live_" + "a1B2" * 6 + " and hf_" + "Zz9" * 12)
+    assert "sk_live_a1B2" not in out and "hf_Zz9" not in out
+
+
+def test_key_names_without_api_prefix_and_camel_case():
+    text = '{"apiKey": "abcd1234efgh5678", "X-API-Key": "zyxw9876vuts5432", "STRIPE_KEY": "qwer1234asdf5678"}'
+    out, _ = redact(text)
+    for secret in ("abcd1234efgh5678", "zyxw9876vuts5432", "qwer1234asdf5678"):
+        assert secret not in out
+
+
+def test_cli_flag_secrets_in_permission_strings():
+    text = ('"Bash(curl -u admin:hunter2secret https://x.io)", "Bash(mysql -pS3cretPass99 db)", '
+            '["--api-key", "k-9f8e7d6c5b4a"], "Bash(tool --token=tok_55aa66bb77cc)"')
+    out, _ = redact(text)
+    for secret in ("hunter2secret", "S3cretPass99", "k-9f8e7d6c5b4a", "tok_55aa66bb77cc"):
+        assert secret not in out

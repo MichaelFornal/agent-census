@@ -103,3 +103,18 @@ def test_whole_batch_failure_with_null_data_is_retryable():
     body = {"data": None, "errors": [{"message": "Something went wrong while executing your query. "
                                                   "Please include `ABCD:1234` when reporting this issue."}]}
     assert is_retryable(200, body)
+
+
+def test_reredact_blobs_rewrites_in_place_and_adds_counts():
+    import json
+    from m0.harvest import reredact_blobs
+    from m0.paths import data_path
+    p = blob_path("cafe01")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text('"DATABASE_URL": "postgres://u:pw1234secret@db.example.com/x"')
+    data_path("files.jsonl").write_text(json.dumps({"oid": "cafe01", "stored": True, "redactions": {"bearer": 1}}) + "\n")
+    added = reredact_blobs()
+    assert "pw1234secret" not in p.read_text()
+    assert added == {"url_credentials": 1}
+    rec = json.loads(data_path("files.jsonl").read_text())
+    assert rec["redactions"] == {"bearer": 1, "url_credentials": 1}

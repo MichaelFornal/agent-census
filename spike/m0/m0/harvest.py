@@ -177,3 +177,24 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+def reredact_blobs() -> dict[str, int]:
+    """Re-apply the current redaction rules to every stored blob in place; add hits to files.jsonl."""
+    files_p = data_path("files.jsonl")
+    files = read_jsonl(files_p)
+    added: dict[str, int] = {}
+    per_oid: dict[str, dict[str, int]] = {}
+    for oid in {f["oid"] for f in files if f.get("stored")}:
+        p = blob_path(oid)
+        clean, counts = redact(p.read_text())
+        if counts:
+            p.write_text(clean)
+            per_oid[oid] = counts
+            for k, v in counts.items():
+                added[k] = added.get(k, 0) + v
+    for f in files:
+        for k, v in per_oid.get(f.get("oid"), {}).items():
+            f.setdefault("redactions", {})[k] = f["redactions"].get(k, 0) + v
+    files_p.write_text("".join(json.dumps(f, sort_keys=True) + "\n" for f in files))
+    return added
