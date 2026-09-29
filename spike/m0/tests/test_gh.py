@@ -118,3 +118,9 @@ def test_search_retries_after_408_request_timeout(tmp_path, clock):
                           transport=httpx.MockTransport(lambda req: next(responses)))
     assert client.search("q")["total_count"] == 5
     assert client.stats["server_errors"] == 1
+
+
+def test_hintless_secondary_limit_waits_at_least_60s(clock):
+    p = Pacer(base_interval=6.0, clock=clock.now, sleep=clock.sleep)
+    p.on_rate_limit(0.0)
+    assert clock.sleeps == [60.0]

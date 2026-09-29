@@ -11,6 +11,7 @@ import httpx
 from m0.paths import append_jsonl, read_jsonl
 
 API = "https://api.github.com"
+SECONDARY_FLOOR_S = 60.0
 
 
 def github_token() -> str:
@@ -51,8 +52,10 @@ class Pacer:
         self.penalty = max(1.0, self.penalty / 2)
 
     def on_rate_limit(self, retry_after: float | None) -> None:
+        """retry_after: seconds GitHub asked for; 0.0 = rate-limited with no hint; None = server error."""
         self.penalty = min(self.max_penalty, self.penalty * 2)
-        self.sleep(max(retry_after or 0.0, self.base_interval * self.penalty))
+        floor = SECONDARY_FLOOR_S if retry_after == 0.0 else 0.0  # GitHub: wait >= 1 min when no hint
+        self.sleep(max(retry_after or 0.0, floor, self.base_interval * self.penalty))
         self._last = None
 
 
