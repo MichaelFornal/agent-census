@@ -75,9 +75,11 @@ class SearchClient:
     """REST code search. Every response is cached in JSONL, so a killed run resumes from the cache."""
 
     def __init__(self, token: str, cache_path: Path, pacer: Pacer | None = None,
-                 transport: httpx.BaseTransport | None = None, max_attempts: int = 10) -> None:
+                 transport: httpx.BaseTransport | None = None, max_attempts: int = 10,
+                 wall: Callable[[], float] = time.time) -> None:
         self.http = httpx.Client(base_url=API, headers=_headers(token), timeout=60.0, transport=transport)
         self.pacer = pacer or Pacer()
+        self.wall = wall
         self.cache_path = cache_path
         self.max_attempts = max_attempts
         self.cache = {r["key"]: r["body"] for r in read_jsonl(cache_path)}
@@ -120,6 +122,9 @@ class SearchClient:
             self.cache[key] = body
             append_jsonl(self.cache_path, {"key": key, "body": body})
             self.pacer.on_success()
+            if resp.headers.get("x-ratelimit-remaining") == "0" and "x-ratelimit-reset" in resp.headers:
+                # Window exhausted: wait for the reset instead of spending a request on a 403.
+                self.pacer.sleep(max(0.0, float(resp.headers["x-ratelimit-reset"]) - self.wall()) + 1.0)
             return body
         raise RuntimeError(f"code search failed after {self.max_attempts} attempts: {key}")
 

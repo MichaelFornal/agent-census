@@ -100,3 +100,13 @@ def test_search_server_error_backs_off_then_succeeds(tmp_path, clock):
                           transport=httpx.MockTransport(lambda req: next(responses)))
     assert client.search("q")["total_count"] == 5
     assert client.stats["server_errors"] == 1
+
+
+def test_search_sleeps_until_reset_when_window_is_exhausted(tmp_path, clock):
+    headers = {"x-ratelimit-remaining": "0", "x-ratelimit-reset": "1000"}
+    client = SearchClient("t", tmp_path / "c.jsonl", pacer=Pacer(clock=clock.now, sleep=clock.sleep),
+                          transport=httpx.MockTransport(lambda req: httpx.Response(200, json=SEARCH_OK, headers=headers)),
+                          wall=lambda: 970.0)
+    client.search("q")
+    assert clock.sleeps == [31.0]
+    assert client.stats["rate_limited"] == 0
