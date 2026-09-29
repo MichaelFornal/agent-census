@@ -218,7 +218,7 @@ def sustain(model: str, bs: int, minutes: float, workers: int, calls_p, recs_p) 
     return s
 
 
-def summarize(calls: list[dict], sessions: list[dict]) -> dict:
+def summarize(calls: list[dict], sessions: list[dict], truncated_share: float | None = None) -> dict:
     groups: dict[tuple, dict] = {}
     for c in calls:
         if c["mode"] != "sweep":
@@ -235,7 +235,17 @@ def summarize(calls: list[dict], sessions: list[dict]) -> dict:
     for g in out:
         g["valid_rate"] = g["ok"] / g["sent"] if g["sent"] else None
         g["artifacts_per_hr"] = g["ok"] / g["wall_s"] * 3600 if g["wall_s"] else None
-    return {"groups": out}
+    cost = sum((c.get("meta") or {}).get("total_cost_usd") or 0 for c in calls)
+    ok = sum(c.get("ok") or 0 for c in calls)
+    return {"groups": out, "cost_usd_per_valid_artifact": cost / ok if ok else None,
+            "truncated_share": truncated_share}
+
+
+def truncated_share() -> float | None:
+    """Share of representatives longer than MAX_CHARS, i.e. sent to the model truncated."""
+    lens = [len(p.read_text()) for r in read_jsonl(data_path("representatives.jsonl"))
+            if (p := blob_path(r["oid"])).exists()]
+    return sum(n > MAX_CHARS for n in lens) / len(lens) if lens else None
 
 
 def main() -> None:
@@ -253,7 +263,7 @@ def main() -> None:
         s = sustain(args.model, args.batch_size, args.sustain_minutes, args.workers, calls_p, recs_p)
         append_jsonl(sessions_p, s)
         print(json.dumps(s))
-    write_metrics("llm", summarize(read_jsonl(calls_p), read_jsonl(sessions_p)))
+    write_metrics("llm", summarize(read_jsonl(calls_p), read_jsonl(sessions_p), truncated_share()))
 
 
 if __name__ == "__main__":

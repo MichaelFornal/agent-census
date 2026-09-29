@@ -28,12 +28,17 @@ def _table(header: list[str], rows: list[list[str]]) -> list[str]:
             + ["| " + " | ".join(r) + " |" for r in rows])
 
 
-def _lattice_row(x: dict) -> list[str]:
+def _lattice_row(x: dict, rate: dict | None) -> list[str]:
+    at_rate = _n(x["projected_hours"] * 10 / rate["req_per_min"]) if rate else "n/a"
+    return _lattice_cells(x) + [at_rate]
+
+
+def _lattice_cells(x: dict) -> list[str]:
     if x.get("partial"):
         pct = round(100 * x["covered"] / x["root_total"])
         return [f"`{x['seed']}` (partial: {pct}% of files walked)", _n(x["root_total"]),
                 f"{_n(x['nodes'])} (projected {_n(x['projected_nodes'])})", _n(x["n_leaves"]),
-                _n(x["n_overflows"]), _n(x["unreachable"]), f"projected {_n(x['projected_fetch_requests'])}",
+                _n(x["n_overflows"]), f"{_n(x['unreachable'])} so far", f"projected {_n(x['projected_fetch_requests'])}",
                 _n(x["projected_hours"])]
     return [f"`{x['seed']}`", _n(x["root_total"]), _n(x["nodes"]), _n(x["n_leaves"]), _n(x["n_overflows"]),
             _n(x["unreachable"]), _n(x["fetch_requests"]), _n(x["projected_hours"])]
@@ -47,8 +52,8 @@ def render(m: dict[str, Any], measured_on: str) -> str:
     lat = m.get("lattice") or []
     if lat:
         out += _table(["Seed", "Root total", "Lattice requests", "Leaves", "Floor overflows", "Files unreachable",
-                       "Full-fetch requests", "Hours at 10 req/min"],
-                      [_lattice_row(x) for x in lat])
+                       "Full-fetch requests", "Hours at 10 req/min", "Hours at measured rate"],
+                      [_lattice_row(x, m.get("search_rate")) for x in lat])
     else:
         out.append(NOT_MEASURED)
     if m.get("lattice_missing"):
@@ -70,7 +75,8 @@ def render(m: dict[str, Any], measured_on: str) -> str:
         out += ["", f"Points per repo: {_n(g['points_per_repo'], 3)}. Repos/hr under the hourly points budget: "
                     f"{_n(g['repos_per_hour_points_bound'], 0)}. Files fetched: {_n(g['files'])} (missing "
                     f"{_n(g['files_missing'])}, binary {_n(g['files_binary'])}, truncated "
-                    f"{_n(g['files_truncated'])}). Secrets redacted: {_n(g['secrets_redacted'])}."]
+                    f"{_n(g['files_truncated'])}). Redaction rule matches (spike rules, over-redaction included): "
+                    f"{_n(g['secrets_redacted'])}."]
     else:
         out.append(NOT_MEASURED)
     out.append("")
@@ -87,6 +93,12 @@ def render(m: dict[str, Any], measured_on: str) -> str:
         rare = ", ".join(f"n={k}: {_n(v, 3)}" for k, v in d["rarefaction"].items())
         out += ["", f"Ratio by sample size (MinHash 0.8, all kinds): {rare}. Projected distinct clusters, "
                     f"all kinds: {_n(d['projected_distinct_total_0.8'])}."]
+        b = m.get("sample_bias")
+        if b:
+            out += ["", f"Size-window sampling over-represents small files: {_n(100 * b['sample_share'])}% of sampled "
+                        f"`{b['kind']}` files are at most {_n(b['threshold_bytes'])} bytes vs at least "
+                        f"{_n(100 * b['population_share_lower_bound'])}% of the population, so these ratios lean "
+                        "toward distinct."]
     else:
         out.append(NOT_MEASURED)
     out.append("")
@@ -98,6 +110,9 @@ def render(m: dict[str, Any], measured_on: str) -> str:
                       [[x["mode"], x["model"], _n(x["batch_size"]), _n(x["workers"]), _n(x["calls"]),
                         _n(x["valid_rate"], 3), _n(x["artifacts_per_hr"], 0), x.get("stopped_reason") or ""]
                        for x in llm["groups"]])
+        if llm.get("cost_usd_per_valid_artifact") is not None:
+            out += ["", f"API-equivalent cost: ${llm['cost_usd_per_valid_artifact']:.4f} per valid artifact. "
+                        f"{_n(100 * (llm.get('truncated_share') or 0))}% of artifacts were truncated to 6,000 characters."]
     else:
         out.append(NOT_MEASURED)
     out.append("")
@@ -116,8 +131,11 @@ def render(m: dict[str, Any], measured_on: str) -> str:
                 if x["mode"] == "sustain" and x["artifacts_per_hr"]), default=None)
     if d and best:
         total = d["projected_distinct_total_0.8"]
-        out += [f"**Derived.** One tier-2 pass over {_n(total)} projected clusters at {_n(best, 0)} "
-                f"artifacts/hr: {_n(total / best, 0)} hours. Two passes: {_n(2 * total / best, 0)} hours.", ""]
+        out += [f"**Derived.** Rough estimate: one tier-2 pass over {_n(total)} projected clusters at {_n(best, 0)} "
+                f"artifacts/hr: {_n(total / best, 0)} hours. Two passes: {_n(2 * total / best, 0)} hours. "
+                "Biases run both ways: the cluster count is an upper bound and the sample leans toward small "
+                "(more distinct) files, which push this up; artifacts were truncated to 6,000 characters and a "
+                "30-minute run cannot show whether weekly Max-plan limits bind, which push it down.", ""]
     return "\n".join(out)
 
 
@@ -128,6 +146,7 @@ def load() -> dict[str, Any]:
         "lattice_missing": [q for k, q in SEEDS.items()
                             if not (read_metrics(f"lattice_{k}") or read_metrics(f"lattice_{k}_partial"))],
         "search_rate": read_metrics("search_rate"),
+        "sample_bias": read_metrics("sample_bias"),
         "graphql": read_metrics("graphql"),
         "dedup": read_metrics("dedup"),
         "llm": read_metrics("llm"),

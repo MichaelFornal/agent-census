@@ -69,3 +69,19 @@ def test_replay_of_complete_cache_is_not_partial():
     assert r["partial"] is False
     assert r["nodes"] == 4
     assert r["projected_nodes"] == 4
+
+
+def test_replay_projection_ignores_overflow_files_as_coverage():
+    from m0.lattice import replay
+    full = histogram_count({5: 10, 100: 2500, 200: 40})
+
+    def cached(q):
+        if "size:128..255" in q:
+            raise KeyError(q)
+        return full(q)
+
+    r = replay("s", cached, lo=0, hi=255, cap=1000)
+    assert r["partial"] is True
+    assert r["covered"] == 2510  # 10 leaf files + 2,500 in the overflow
+    n = r["nodes"]
+    assert r["projected_nodes"] == round(n + n / 10 * (2550 - 2510))

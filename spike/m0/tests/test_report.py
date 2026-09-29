@@ -23,12 +23,12 @@ M = {
 def test_render_rows():
     out = render(M, "2026-10-01")
     assert out.startswith("### 9.1 M0 measured targets (measured 2026-10-01)")
-    assert "| `filename:CLAUDE.md` | 790,528 | 1,650 | 820 | 2 | 1,400 | 8,100 | 16.3 |" in out
+    assert "| `filename:CLAUDE.md` | 790,528 | 1,650 | 820 | 2 | 1,400 | 8,100 | 16.3 | n/a |" in out
     assert "| 50 | 10 | 1 | 2.50 | 4.00 | 0.10 | 72,000 |" in out
     assert "| skill | 1,000 | 0.400 | 0.350 | 0.250 | 0.300 | 0.320 | 129,946 |" in out
     assert "| sustain | haiku | 10 | 3 | 50 | 0.960 | 1,200 | time |" in out
     assert "| BAAI/bge-small-en-v1.5 | mps | 128 | short | 850 |" in out
-    assert "600,000 projected clusters at 1,200 artifacts/hr: 500 hours" in out
+    assert "Rough estimate: one tier-2 pass over 600,000 projected clusters at 1,200 artifacts/hr: 500 hours" in out
 
 
 def test_render_marks_missing_sections():
@@ -43,10 +43,28 @@ def test_render_partial_lattice_seed_and_search_rate():
          "search_rate": {"req_per_min": 2.5, "window_s": 600}}
     out = render(m, "2026-10-01")
     assert ("| `filename:CLAUDE.md` (partial: 19% of files walked) | 790,528 | 341 (projected 1,824) | 150 | 6 "
-            "| 39,090 | projected 6,200 | 13.4 |") in out
+            "| 39,090 so far | projected 6,200 | 13.4 | 53.6 |") in out
     assert "Measured effective rate under GitHub secondary limits: 2.5 successful requests/min" in out
 
 
 def test_render_lists_seeds_not_reached():
     out = render({"lattice": M["lattice"], "lattice_missing": ["path:.claude", "path:.claude-plugin"]}, "d")
     assert "Not reached yet: `path:.claude`, `path:.claude-plugin`." in out
+
+
+def test_render_caveats_from_metrics():
+    m = dict(M)
+    m["graphql"] = dict(M["graphql"])
+    m["llm"] = dict(M["llm"], cost_usd_per_valid_artifact=0.0079, truncated_share=0.29)
+    m["sample_bias"] = {"kind": "claude_md", "threshold_bytes": 1000, "sample_share": 0.486,
+                        "population_share_lower_bound": 0.185}
+    out = render(m, "d")
+    assert "Redaction rule matches (spike rules, over-redaction included): 7." in out
+    assert ("Size-window sampling over-represents small files: 48.6% of sampled `claude_md` files are "
+            "at most 1,000 bytes vs at least 18.5% of the population, so these ratios lean toward distinct.") in out
+    assert "API-equivalent cost: $0.0079 per valid artifact. 29.0% of artifacts were truncated to 6,000 characters." in out
+
+
+def test_derived_line_states_bias_directions():
+    out = render(M, "d")
+    assert "push this up" in out and "push it down" in out

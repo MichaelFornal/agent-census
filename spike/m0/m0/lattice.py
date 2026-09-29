@@ -86,8 +86,8 @@ def replay(seed: str, count: Callable[[str], tuple[int, bool]], lo: int = 0, hi:
            cap: int = CAP) -> dict:
     """Re-walk from cached counts only; stop at the first uncached query (count raises KeyError).
 
-    A partial walk is projected linearly by files covered. The walk covers small sizes first,
-    where files are densest, so the projection is an upper bound.
+    A partial walk is projected linearly: nodes and fetch requests per leaf file (overflow files
+    are not reachable coverage) times the files not yet covered. It is a projection, not a bound.
     """
     res = LatticeResult(seed=seed, cap=cap)
     partial = False
@@ -97,9 +97,12 @@ def replay(seed: str, count: Callable[[str], tuple[int, bool]], lo: int = 0, hi:
         partial = True
     d = res.to_dict()
     covered = res.leaf_sum
-    scale = res.root_total / covered if partial and covered else 1
-    d.update(partial=partial, covered=covered, projected_nodes=round(res.nodes * scale),
-             projected_fetch_requests=round(res.fetch_requests * scale))
+    leaf_files = sum(t for _, _, t in res.leaves)
+    remaining = max(0, res.root_total - covered) if partial and leaf_files else 0
+    per_file = remaining / leaf_files if leaf_files else 0
+    d.update(partial=partial, covered=covered,
+             projected_nodes=round(res.nodes + res.nodes * per_file),
+             projected_fetch_requests=round(res.fetch_requests + res.fetch_requests * per_file))
     return d
 
 

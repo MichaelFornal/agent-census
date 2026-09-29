@@ -71,3 +71,13 @@ def test_summarize_aggregates_sweep_calls_and_passes_sessions_through():
     assert sweep["valid_rate"] == pytest.approx(0.6)
     assert groups[1]["mode"] == "sustain"
     assert groups[1]["artifacts_per_hr"] == 360.0
+
+
+def test_summarize_reports_cost_per_valid_artifact_and_truncated_share():
+    calls = [{"mode": "sweep", "model": "sonnet", "batch_size": 5, "wall_s": 10.0, "ok": 4,
+              "meta": {"total_cost_usd": 0.02}},
+             {"mode": "sweep", "model": "sonnet", "batch_size": 5, "wall_s": 10.0, "ok": 1,
+              "meta": {"total_cost_usd": 0.03}}]
+    s = summarize(calls, [], truncated_share=0.29)
+    assert s["cost_usd_per_valid_artifact"] == pytest.approx(0.01)
+    assert s["truncated_share"] == 0.29
