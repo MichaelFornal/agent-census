@@ -110,3 +110,11 @@ def test_search_sleeps_until_reset_when_window_is_exhausted(tmp_path, clock):
     client.search("q")
     assert clock.sleeps == [31.0]
     assert client.stats["rate_limited"] == 0
+
+
+def test_search_retries_after_408_request_timeout(tmp_path, clock):
+    responses = iter([httpx.Response(408), httpx.Response(200, json=SEARCH_OK)])
+    client = SearchClient("t", tmp_path / "c.jsonl", pacer=Pacer(clock=clock.now, sleep=clock.sleep),
+                          transport=httpx.MockTransport(lambda req: next(responses)))
+    assert client.search("q")["total_count"] == 5
+    assert client.stats["server_errors"] == 1

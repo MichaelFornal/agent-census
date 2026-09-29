@@ -104,7 +104,7 @@ class SearchClient:
                 self.stats["rate_limited"] += 1
                 self.pacer.on_rate_limit(wait)
                 continue
-            if resp.status_code >= 500:
+            if resp.status_code >= 500 or resp.status_code == 408:
                 self.stats["server_errors"] += 1
                 self.pacer.on_rate_limit(None)
                 continue
