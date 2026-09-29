@@ -2,3 +2,7 @@ data/
 .venv/
 __pycache__/
 .pytest_cache/
+node_modules/
+site/dist/
+site/.astro/
+site/src/data/
