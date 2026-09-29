@@ -1,0 +1,6 @@
+{
+  "kind": "claude_md",
+  "population_share_lower_bound": 0.18524454541774613,
+  "sample_share": 0.48400203148806503,
+  "threshold_bytes": 1000
+}

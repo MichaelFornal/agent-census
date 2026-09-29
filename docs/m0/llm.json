@@ -1,4 +1,5 @@
 {
+  "cost_usd_per_valid_artifact": 0.007973987038602423,
   "groups": [
     {
       "artifacts_per_hr": 184.39826191730185,
@@ -112,5 +113,6 @@
       "wall_s": 1818.3758376659825,
       "workers": 3
     }
-  ]
+  ],
+  "truncated_share": 0.2866281469252992
 }

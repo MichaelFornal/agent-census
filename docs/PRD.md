@@ -223,14 +223,14 @@ Produced by the throwaway `spike/m0` scripts. Raw metrics: `docs/m0/`.
 
 **S1: code-search lattice** (paced at 10 req/min)
 
-| Seed | Root total | Lattice requests | Leaves | Floor overflows | Files unreachable | Full-fetch requests | Hours at 10 req/min |
-|---|---|---|---|---|---|---|---|
-| `filename:CLAUDE.md` (partial: 20% of files walked) | 790,528 | 365 (projected 1,844) | 171 | 6 | 39,090 | projected 6,326 | 13.6 |
-| `filename:.mcp.json` | 65,408 | 192 | 95 | 1 | 310 | 657 | 1.4 |
+| Seed | Root total | Lattice requests | Leaves | Floor overflows | Files unreachable | Full-fetch requests | Hours at 10 req/min | Hours at measured rate |
+|---|---|---|---|---|---|---|---|---|
+| `filename:CLAUDE.md` (partial: 24% of files walked) | 790,528 | 456 (projected 2,340) | 216 | 6 | 39,090 so far | projected 8,266 | 17.7 | 78.0 |
+| `filename:.mcp.json` | 65,408 | 192 | 95 | 1 | 310 | 657 | 1.4 | 6.2 |
 
 Not reached yet: `path:.claude`, `path:.claude-plugin`.
 
-Measured effective rate under GitHub secondary limits: 2.2 successful requests/min (over 600 s); hours above assume 10/min.
+Measured effective rate under GitHub secondary limits: 2.3 successful requests/min (over 1,800 s); the last column rescales the hours to it.
 
 **S2: GraphQL harvest**
 
@@ -238,27 +238,30 @@ Measured effective rate under GitHub secondary limits: 2.2 successful requests/m
 |---|---|---|---|---|---|---|
 | 10 | 4 | 1.0 | 1.75 | 1.91 | 0.00 | 20,610 |
 | 18 | 1 | 1 | 7.51 | 7.51 | 0.00 | 8,625 |
-| 25 | 42 | 1.0 | 3.60 | 4.87 | 0.00 | 25,023 |
-| 50 | 88 | 1 | 9.30 | 9.98 | 0.36 | 19,346 |
+| 25 | 45 | 1 | 3.71 | 5.06 | 0.00 | 24,266 |
+| 26 | 1 | 1 | 5.28 | 5.28 | 0.00 | 17,731 |
+| 50 | 94 | 1.0 | 9.24 | 9.87 | 0.43 | 19,485 |
 | 100 | 7 | n/a | n/a | n/a | 1.00 | n/a |
 
-Points per repo: 0.025. Repos/hr under the hourly points budget: 199,388. Files fetched: 5,000 (missing 324, binary 0, truncated 0). Secrets redacted: 431.
+Points per repo: 0.027. Repos/hr under the hourly points budget: 186,143. Files fetched: 5,000 (missing 1, binary 0, truncated 0). Redaction rule matches (spike rules, over-redaction included): 765.
 
 **S4: distinct-cluster ratio** (distinct / files, 5k sample)
 
 | Kind | Files | Exact | Normalized | MinHash 0.7 | MinHash 0.8 | MinHash 0.9 | Projected distinct at 0.8 (upper bound) |
 |---|---|---|---|---|---|---|---|
-| agent | 561 | 0.998 | 0.986 | 0.964 | 0.966 | 0.966 | 230,017 |
-| claude_md | 1,836 | 0.992 | 0.985 | 0.967 | 0.969 | 0.969 | 765,985 |
-| command | 506 | 0.988 | 0.988 | 0.976 | 0.982 | 0.984 | 212,221 |
-| hook | 207 | 0.986 | 0.986 | 0.976 | 0.976 | 0.976 | 85,437 |
-| mcp | 148 | 0.905 | 0.885 | 0.872 | 0.872 | 0.878 | 56,565 |
-| plugin | 59 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 25,408 |
-| settings | 155 | 1.000 | 0.994 | 0.955 | 0.961 | 0.968 | 62,876 |
-| settings_local | 201 | 0.960 | 0.945 | 0.945 | 0.945 | 0.945 | 80,825 |
-| skill | 1,003 | 0.992 | 0.990 | 0.980 | 0.983 | 0.988 | 425,810 |
+| agent | 593 | 0.998 | 0.987 | 0.966 | 0.968 | 0.968 | 230,452 |
+| claude_md | 1,969 | 0.992 | 0.985 | 0.965 | 0.968 | 0.969 | 765,234 |
+| command | 539 | 0.989 | 0.989 | 0.978 | 0.983 | 0.985 | 212,456 |
+| hook | 218 | 0.986 | 0.986 | 0.977 | 0.977 | 0.977 | 85,544 |
+| mcp | 162 | 0.901 | 0.877 | 0.864 | 0.864 | 0.870 | 56,083 |
+| plugin | 63 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 25,408 |
+| settings | 163 | 1.000 | 0.994 | 0.957 | 0.963 | 0.969 | 63,000 |
+| settings_local | 213 | 0.958 | 0.944 | 0.944 | 0.944 | 0.944 | 80,687 |
+| skill | 1,079 | 0.993 | 0.991 | 0.981 | 0.984 | 0.989 | 426,328 |
 
-Ratio by sample size (MinHash 0.8, all kinds): n=1000: 0.990, n=2500: 0.976, n=4676: 0.969. Projected distinct clusters, all kinds: 1,945,144.
+Ratio by sample size (MinHash 0.8, all kinds): n=1000: 0.989, n=2500: 0.976, n=4999: 0.969. Projected distinct clusters, all kinds: 1,945,192.
+
+Size-window sampling over-represents small files: 48.4% of sampled `claude_md` files are at most 1,000 bytes vs at least 18.5% of the population, so these ratios lean toward distinct.
 
 **S6: `claude -p` tier-2 throughput**
 
@@ -272,6 +275,8 @@ Ratio by sample size (MinHash 0.8, all kinds): n=1000: 0.990, n=2500: 0.976, n=4
 | sweep | sonnet | 20 | 1 | 3 | 0.967 | 1,900 |  |
 | sustain | sonnet | 20 | 1 | 47 | 0.932 | 1,723 | time |
 | sustain | sonnet | 20 | 3 | 141 | 0.902 | 5,035 | time |
+
+API-equivalent cost: $0.0080 per valid artifact. 28.7% of artifacts were truncated to 6,000 characters.
 
 **S7: embeddings**
 
@@ -294,7 +299,7 @@ Ratio by sample size (MinHash 0.8, all kinds): n=1000: 0.990, n=2500: 0.976, n=4
 | nomic-ai/nomic-embed-text-v1.5 | cpu | 32 | long | 7 |
 | nomic-ai/nomic-embed-text-v1.5 | cpu | 128 | long | 5 |
 
-**Derived.** One tier-2 pass over 1,945,144 projected clusters at 5,035 artifacts/hr: 386 hours. Two passes: 773 hours.
+**Derived.** Rough estimate: one tier-2 pass over 1,945,192 projected clusters at 5,035 artifacts/hr: 386 hours. Two passes: 773 hours. Biases run both ways: the cluster count is an upper bound and the sample leans toward small (more distinct) files, which push this up; artifacts were truncated to 6,000 characters and a 30-minute run cannot show whether weekly Max-plan limits bind, which push it down.
 
 ## 10. Risks and stated limits (these appear on the methodology page)
 

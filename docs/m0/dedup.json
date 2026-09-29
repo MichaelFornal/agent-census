@@ -1,121 +1,121 @@
 {
   "kinds": {
     "agent": {
-      "exact": 560,
+      "exact": 592,
       "minhash": {
-        "0.5": 538,
-        "0.7": 541,
-        "0.8": 542,
-        "0.9": 542
+        "0.5": 570,
+        "0.7": 573,
+        "0.8": 574,
+        "0.9": 574
       },
-      "n": 561,
-      "normalized": 553,
-      "projected_distinct_0.8": 230017
+      "n": 593,
+      "normalized": 585,
+      "projected_distinct_0.8": 230452
     },
     "claude_md": {
-      "exact": 1822,
+      "exact": 1953,
       "minhash": {
-        "0.5": 1762,
-        "0.7": 1775,
-        "0.8": 1779,
-        "0.9": 1780
+        "0.5": 1886,
+        "0.7": 1900,
+        "0.8": 1906,
+        "0.9": 1907
       },
-      "n": 1836,
-      "normalized": 1809,
-      "projected_distinct_0.8": 765985
+      "n": 1969,
+      "normalized": 1939,
+      "projected_distinct_0.8": 765234
     },
     "command": {
-      "exact": 500,
+      "exact": 533,
       "minhash": {
-        "0.5": 489,
-        "0.7": 494,
-        "0.8": 497,
-        "0.9": 498
+        "0.5": 522,
+        "0.7": 527,
+        "0.8": 530,
+        "0.9": 531
       },
-      "n": 506,
-      "normalized": 500,
-      "projected_distinct_0.8": 212221
+      "n": 539,
+      "normalized": 533,
+      "projected_distinct_0.8": 212456
     },
     "hook": {
-      "exact": 204,
+      "exact": 215,
       "minhash": {
-        "0.5": 197,
-        "0.7": 202,
-        "0.8": 202,
-        "0.9": 202
+        "0.5": 208,
+        "0.7": 213,
+        "0.8": 213,
+        "0.9": 213
       },
-      "n": 207,
-      "normalized": 204,
-      "projected_distinct_0.8": 85437
+      "n": 218,
+      "normalized": 215,
+      "projected_distinct_0.8": 85544
     },
     "mcp": {
-      "exact": 134,
+      "exact": 146,
       "minhash": {
-        "0.5": 127,
-        "0.7": 129,
-        "0.8": 129,
-        "0.9": 130
+        "0.5": 138,
+        "0.7": 140,
+        "0.8": 140,
+        "0.9": 141
       },
-      "n": 148,
-      "normalized": 131,
-      "projected_distinct_0.8": 56565
+      "n": 162,
+      "normalized": 142,
+      "projected_distinct_0.8": 56083
     },
     "plugin": {
-      "exact": 59,
+      "exact": 63,
       "minhash": {
-        "0.5": 59,
-        "0.7": 59,
-        "0.8": 59,
-        "0.9": 59
+        "0.5": 63,
+        "0.7": 63,
+        "0.8": 63,
+        "0.9": 63
       },
-      "n": 59,
-      "normalized": 59,
+      "n": 63,
+      "normalized": 63,
       "projected_distinct_0.8": 25408
     },
     "settings": {
-      "exact": 155,
+      "exact": 163,
       "minhash": {
-        "0.5": 147,
-        "0.7": 148,
-        "0.8": 149,
-        "0.9": 150
+        "0.5": 155,
+        "0.7": 156,
+        "0.8": 157,
+        "0.9": 158
       },
-      "n": 155,
-      "normalized": 154,
-      "projected_distinct_0.8": 62876
+      "n": 163,
+      "normalized": 162,
+      "projected_distinct_0.8": 63000
     },
     "settings_local": {
-      "exact": 193,
+      "exact": 204,
       "minhash": {
-        "0.5": 189,
-        "0.7": 190,
-        "0.8": 190,
-        "0.9": 190
+        "0.5": 200,
+        "0.7": 201,
+        "0.8": 201,
+        "0.9": 201
       },
-      "n": 201,
-      "normalized": 190,
-      "projected_distinct_0.8": 80825
+      "n": 213,
+      "normalized": 201,
+      "projected_distinct_0.8": 80687
     },
     "skill": {
-      "exact": 995,
+      "exact": 1071,
       "minhash": {
-        "0.5": 961,
-        "0.7": 983,
-        "0.8": 986,
-        "0.9": 991
+        "0.5": 1035,
+        "0.7": 1058,
+        "0.8": 1062,
+        "0.9": 1067
       },
-      "n": 1003,
-      "normalized": 993,
-      "projected_distinct_0.8": 425810
+      "n": 1079,
+      "normalized": 1069,
+      "projected_distinct_0.8": 426328
     }
   },
-  "projected_distinct_total_0.8": 1945144,
+  "projected_distinct_total_0.8": 1945192,
   "rarefaction": {
-    "1000": 0.99,
+    "1000": 0.989,
     "2500": 0.976,
-    "4676": 0.9694183062446535
+    "4999": 0.9693938787757551
   },
   "skipped": {
-    "missing": 324
+    "missing": 1
   }
 }

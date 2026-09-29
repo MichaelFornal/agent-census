@@ -1,11 +1,11 @@
 {
-  "covered": 156466,
-  "fetch_requests": 1252,
+  "covered": 190370,
+  "fetch_requests": 1611,
   "incomplete": 0,
-  "leaf_sum": 156466,
-  "n_leaves": 171,
+  "leaf_sum": 190370,
+  "n_leaves": 216,
   "n_overflows": 6,
-  "nodes": 365,
+  "nodes": 456,
   "overflows": [
     [
       9,
@@ -33,9 +33,9 @@
     ]
   ],
   "partial": true,
-  "projected_fetch_requests": 6326,
-  "projected_hours": 13.616666666666667,
-  "projected_nodes": 1844,
+  "projected_fetch_requests": 8266,
+  "projected_hours": 17.676666666666666,
+  "projected_nodes": 2340,
   "root_total": 790528,
   "seed": "filename:CLAUDE.md",
   "unreachable": 39090

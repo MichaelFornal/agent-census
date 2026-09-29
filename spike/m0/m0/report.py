@@ -61,7 +61,7 @@ def render(m: dict[str, Any], measured_on: str) -> str:
     rate = m.get("search_rate")
     if rate:
         out += ["", f"Measured effective rate under GitHub secondary limits: {_n(rate['req_per_min'])} "
-                    f"successful requests/min (over {_n(rate['window_s'])} s); hours above assume 10/min."]
+                    f"successful requests/min (over {_n(rate['window_s'], 0)} s); the last column rescales the hours to it."]
     out.append("")
 
     out += ["**S2: GraphQL harvest**", ""]
