@@ -97,3 +97,9 @@ def test_summarize():
     assert s["repos_per_hour_points_bound"] == 50000.0
     assert s["files_missing"] == 1
     assert s["secrets_redacted"] == 2
+
+
+def test_whole_batch_failure_with_null_data_is_retryable():
+    body = {"data": None, "errors": [{"message": "Something went wrong while executing your query. "
+                                                  "Please include `ABCD:1234` when reporting this issue."}]}
+    assert is_retryable(200, body)

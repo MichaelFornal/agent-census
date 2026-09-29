@@ -74,13 +74,9 @@ def parse_response(batch: list[tuple[str, list[str]]], body: dict):
 def is_retryable(status: int, body: dict) -> bool:
     if status in (0, 502, 503, 504):
         return True
-    if body.get("data"):
-        return False
-    for e in body.get("errors") or []:
-        msg = (e.get("message") or "").lower()
-        if e.get("type") in ("RESOURCE_LIMITS_EXCEEDED", "TIMEOUT") or "timeout" in msg or "timed out" in msg:
-            return True
-    return False
+    # A partial failure still returns data (rateLimit plus per-alias nulls); a whole-batch failure
+    # (GitHub's 10 s execution timeout, resource limits) returns data null with errors.
+    return not body.get("data") and bool(body.get("errors"))
 
 
 def store_file(f: dict) -> dict:
