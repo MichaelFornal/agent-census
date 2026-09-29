@@ -217,6 +217,85 @@ human labels."
 | M5 | Full site | All 8 surfaces, glyphs, matrix, map; the adversarial pass is green |
 | M6 | Freeze and launch | Findings chosen, `census freeze`, hand-written README and launch post, deployed to `census.forn.al`, linked from forn.al |
 
+### 9.1 M0 measured targets (measured 2026-09-29)
+
+Produced by the throwaway `spike/m0` scripts. Raw metrics: `docs/m0/`.
+
+**S1: code-search lattice** (paced at 10 req/min)
+
+| Seed | Root total | Lattice requests | Leaves | Floor overflows | Files unreachable | Full-fetch requests | Hours at 10 req/min |
+|---|---|---|---|---|---|---|---|
+| `filename:CLAUDE.md` (partial: 20% of files walked) | 790,528 | 365 (projected 1,844) | 171 | 6 | 39,090 | projected 6,326 | 13.6 |
+| `filename:.mcp.json` | 65,408 | 192 | 95 | 1 | 310 | 657 | 1.4 |
+
+Not reached yet: `path:.claude`, `path:.claude-plugin`.
+
+Measured effective rate under GitHub secondary limits: 2.2 successful requests/min (over 600 s); hours above assume 10/min.
+
+**S2: GraphQL harvest**
+
+| Batch size (repos) | Batches | Median cost (points) | Median latency (s) | p90 latency (s) | Retry rate | Repos/hr (latency bound) |
+|---|---|---|---|---|---|---|
+| 10 | 4 | 1.0 | 1.75 | 1.91 | 0.00 | 20,610 |
+| 18 | 1 | 1 | 7.51 | 7.51 | 0.00 | 8,625 |
+| 25 | 42 | 1.0 | 3.60 | 4.87 | 0.00 | 25,023 |
+| 50 | 88 | 1 | 9.30 | 9.98 | 0.36 | 19,346 |
+| 100 | 7 | n/a | n/a | n/a | 1.00 | n/a |
+
+Points per repo: 0.025. Repos/hr under the hourly points budget: 199,388. Files fetched: 5,000 (missing 324, binary 0, truncated 0). Secrets redacted: 431.
+
+**S4: distinct-cluster ratio** (distinct / files, 5k sample)
+
+| Kind | Files | Exact | Normalized | MinHash 0.7 | MinHash 0.8 | MinHash 0.9 | Projected distinct at 0.8 (upper bound) |
+|---|---|---|---|---|---|---|---|
+| agent | 561 | 0.998 | 0.986 | 0.964 | 0.966 | 0.966 | 230,017 |
+| claude_md | 1,836 | 0.992 | 0.985 | 0.967 | 0.969 | 0.969 | 765,985 |
+| command | 506 | 0.988 | 0.988 | 0.976 | 0.982 | 0.984 | 212,221 |
+| hook | 207 | 0.986 | 0.986 | 0.976 | 0.976 | 0.976 | 85,437 |
+| mcp | 148 | 0.905 | 0.885 | 0.872 | 0.872 | 0.878 | 56,565 |
+| plugin | 59 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 25,408 |
+| settings | 155 | 1.000 | 0.994 | 0.955 | 0.961 | 0.968 | 62,876 |
+| settings_local | 201 | 0.960 | 0.945 | 0.945 | 0.945 | 0.945 | 80,825 |
+| skill | 1,003 | 0.992 | 0.990 | 0.980 | 0.983 | 0.988 | 425,810 |
+
+Ratio by sample size (MinHash 0.8, all kinds): n=1000: 0.990, n=2500: 0.976, n=4676: 0.969. Projected distinct clusters, all kinds: 1,945,144.
+
+**S6: `claude -p` tier-2 throughput**
+
+| Mode | Model | Batch | Workers | Calls | Valid rate | Artifacts/hr | Stopped |
+|---|---|---|---|---|---|---|---|
+| sweep | haiku | 5 | 1 | 3 | 0.533 | 184 |  |
+| sweep | haiku | 10 | 1 | 3 | 0.367 | 239 |  |
+| sweep | haiku | 20 | 1 | 3 | 0.350 | 273 |  |
+| sweep | sonnet | 5 | 1 | 3 | 0.800 | 1,289 |  |
+| sweep | sonnet | 10 | 1 | 3 | 0.667 | 1,071 |  |
+| sweep | sonnet | 20 | 1 | 3 | 0.967 | 1,900 |  |
+| sustain | sonnet | 20 | 1 | 47 | 0.932 | 1,723 | time |
+| sustain | sonnet | 20 | 3 | 141 | 0.902 | 5,035 | time |
+
+**S7: embeddings**
+
+| Model | Device | Batch | Text | Texts/s |
+|---|---|---|---|---|
+| BAAI/bge-small-en-v1.5 | mps | 32 | short | 268 |
+| BAAI/bge-small-en-v1.5 | mps | 128 | short | 255 |
+| BAAI/bge-small-en-v1.5 | mps | 32 | long | 29 |
+| BAAI/bge-small-en-v1.5 | mps | 128 | long | 23 |
+| BAAI/bge-small-en-v1.5 | cpu | 32 | short | 268 |
+| BAAI/bge-small-en-v1.5 | cpu | 128 | short | 240 |
+| BAAI/bge-small-en-v1.5 | cpu | 32 | long | 19 |
+| BAAI/bge-small-en-v1.5 | cpu | 128 | long | 16 |
+| nomic-ai/nomic-embed-text-v1.5 | mps | 32 | short | 68 |
+| nomic-ai/nomic-embed-text-v1.5 | mps | 128 | short | 62 |
+| nomic-ai/nomic-embed-text-v1.5 | mps | 32 | long | 8 |
+| nomic-ai/nomic-embed-text-v1.5 | mps | 128 | long | 7 |
+| nomic-ai/nomic-embed-text-v1.5 | cpu | 32 | short | 63 |
+| nomic-ai/nomic-embed-text-v1.5 | cpu | 128 | short | 59 |
+| nomic-ai/nomic-embed-text-v1.5 | cpu | 32 | long | 7 |
+| nomic-ai/nomic-embed-text-v1.5 | cpu | 128 | long | 5 |
+
+**Derived.** One tier-2 pass over 1,945,144 projected clusters at 5,035 artifacts/hr: 386 hours. Two passes: 773 hours.
+
 ## 10. Risks and stated limits (these appear on the methodology page)
 
 - **Coverage.** Code search indexes default branches of public repos only, and not all of them.

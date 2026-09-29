@@ -1,0 +1,42 @@
+{
+  "covered": 156466,
+  "fetch_requests": 1252,
+  "incomplete": 0,
+  "leaf_sum": 156466,
+  "n_leaves": 171,
+  "n_overflows": 6,
+  "nodes": 365,
+  "overflows": [
+    [
+      9,
+      7280
+    ],
+    [
+      10,
+      1262
+    ],
+    [
+      11,
+      29824
+    ],
+    [
+      13,
+      1860
+    ],
+    [
+      43,
+      1120
+    ],
+    [
+      169,
+      3744
+    ]
+  ],
+  "partial": true,
+  "projected_fetch_requests": 6326,
+  "projected_hours": 13.616666666666667,
+  "projected_nodes": 1844,
+  "root_total": 790528,
+  "seed": "filename:CLAUDE.md",
+  "unreachable": 39090
+}

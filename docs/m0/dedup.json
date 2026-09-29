@@ -1,0 +1,121 @@
+{
+  "kinds": {
+    "agent": {
+      "exact": 560,
+      "minhash": {
+        "0.5": 538,
+        "0.7": 541,
+        "0.8": 542,
+        "0.9": 542
+      },
+      "n": 561,
+      "normalized": 553,
+      "projected_distinct_0.8": 230017
+    },
+    "claude_md": {
+      "exact": 1822,
+      "minhash": {
+        "0.5": 1762,
+        "0.7": 1775,
+        "0.8": 1779,
+        "0.9": 1780
+      },
+      "n": 1836,
+      "normalized": 1809,
+      "projected_distinct_0.8": 765985
+    },
+    "command": {
+      "exact": 500,
+      "minhash": {
+        "0.5": 489,
+        "0.7": 494,
+        "0.8": 497,
+        "0.9": 498
+      },
+      "n": 506,
+      "normalized": 500,
+      "projected_distinct_0.8": 212221
+    },
+    "hook": {
+      "exact": 204,
+      "minhash": {
+        "0.5": 197,
+        "0.7": 202,
+        "0.8": 202,
+        "0.9": 202
+      },
+      "n": 207,
+      "normalized": 204,
+      "projected_distinct_0.8": 85437
+    },
+    "mcp": {
+      "exact": 134,
+      "minhash": {
+        "0.5": 127,
+        "0.7": 129,
+        "0.8": 129,
+        "0.9": 130
+      },
+      "n": 148,
+      "normalized": 131,
+      "projected_distinct_0.8": 56565
+    },
+    "plugin": {
+      "exact": 59,
+      "minhash": {
+        "0.5": 59,
+        "0.7": 59,
+        "0.8": 59,
+        "0.9": 59
+      },
+      "n": 59,
+      "normalized": 59,
+      "projected_distinct_0.8": 25408
+    },
+    "settings": {
+      "exact": 155,
+      "minhash": {
+        "0.5": 147,
+        "0.7": 148,
+        "0.8": 149,
+        "0.9": 150
+      },
+      "n": 155,
+      "normalized": 154,
+      "projected_distinct_0.8": 62876
+    },
+    "settings_local": {
+      "exact": 193,
+      "minhash": {
+        "0.5": 189,
+        "0.7": 190,
+        "0.8": 190,
+        "0.9": 190
+      },
+      "n": 201,
+      "normalized": 190,
+      "projected_distinct_0.8": 80825
+    },
+    "skill": {
+      "exact": 995,
+      "minhash": {
+        "0.5": 961,
+        "0.7": 983,
+        "0.8": 986,
+        "0.9": 991
+      },
+      "n": 1003,
+      "normalized": 993,
+      "projected_distinct_0.8": 425810
+    }
+  },
+  "projected_distinct_total_0.8": 1945144,
+  "rarefaction": {
+    "1000": 0.99,
+    "2500": 0.976,
+    "4676": 0.9694183062446535
+  },
+  "skipped": {
+    "missing": 324
+  }
+}

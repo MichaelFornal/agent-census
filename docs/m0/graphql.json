@@ -1,0 +1,53 @@
+{
+  "by_batch_size": {
+    "10": {
+      "batches": 4,
+      "median_cost": 1.0,
+      "median_latency_s": 1.7466905830078758,
+      "p90_latency_s": 1.9111087080091238,
+      "repos_per_hour_latency_bound": 20610.404813659934,
+      "retry_rate": 0.0
+    },
+    "100": {
+      "batches": 7,
+      "median_cost": null,
+      "median_latency_s": null,
+      "p90_latency_s": null,
+      "repos_per_hour_latency_bound": null,
+      "retry_rate": 1.0
+    },
+    "18": {
+      "batches": 1,
+      "median_cost": 1,
+      "median_latency_s": 7.51319495899952,
+      "p90_latency_s": 7.51319495899952,
+      "repos_per_hour_latency_bound": 8624.826103092228,
+      "retry_rate": 0.0
+    },
+    "25": {
+      "batches": 42,
+      "median_cost": 1.0,
+      "median_latency_s": 3.5967061249975814,
+      "p90_latency_s": 4.872838000010233,
+      "repos_per_hour_latency_bound": 25022.89508016464,
+      "retry_rate": 0.0
+    },
+    "50": {
+      "batches": 88,
+      "median_cost": 1,
+      "median_latency_s": 9.304144604000612,
+      "p90_latency_s": 9.983113042020705,
+      "repos_per_hour_latency_bound": 19346.216945360382,
+      "retry_rate": 0.36363636363636365
+    }
+  },
+  "files": 5000,
+  "files_binary": 0,
+  "files_missing": 324,
+  "files_truncated": 0,
+  "points_per_repo": 0.025076765609007165,
+  "repos_fetched": 3908,
+  "repos_missing": 251,
+  "repos_per_hour_points_bound": 199387.75510204083,
+  "secrets_redacted": 431
+}

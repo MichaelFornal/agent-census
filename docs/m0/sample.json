@@ -1,0 +1,47 @@
+{
+  "agent": {
+    "got": 593,
+    "quota": 593,
+    "requests": 60
+  },
+  "claude_md": {
+    "got": 1970,
+    "quota": 1970,
+    "requests": 218
+  },
+  "command": {
+    "got": 539,
+    "quota": 539,
+    "requests": 54
+  },
+  "hook": {
+    "got": 218,
+    "quota": 218,
+    "requests": 22
+  },
+  "mcp": {
+    "got": 162,
+    "quota": 162,
+    "requests": 17
+  },
+  "plugin": {
+    "got": 63,
+    "quota": 63,
+    "requests": 7
+  },
+  "settings": {
+    "got": 163,
+    "quota": 163,
+    "requests": 17
+  },
+  "settings_local": {
+    "got": 213,
+    "quota": 213,
+    "requests": 22
+  },
+  "skill": {
+    "got": 1079,
+    "quota": 1079,
+    "requests": 108
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "client_stats": {
+    "cache_hits": 20,
+    "http_requests": 176,
+    "rate_limited": 4,
+    "server_errors": 0
+  },
+  "elapsed_s": 1122.1758967500064,
+  "fetch_requests": 657,
+  "incomplete": 0,
+  "leaf_sum": 61379,
+  "n_leaves": 95,
+  "n_overflows": 1,
+  "nodes": 192,
+  "overflows": [
+    [
+      148,
+      1310
+    ]
+  ],
+  "projected_hours": 1.415,
+  "root_total": 65408,
+  "seed": "filename:.mcp.json",
+  "unreachable": 310
+}

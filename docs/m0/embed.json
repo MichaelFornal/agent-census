@@ -1,0 +1,133 @@
+{
+  "results": [
+    {
+      "batch_size": 32,
+      "device": "mps",
+      "model": "BAAI/bge-small-en-v1.5",
+      "n": 2000,
+      "text": "short",
+      "texts_per_s": 267.85590671414474
+    },
+    {
+      "batch_size": 128,
+      "device": "mps",
+      "model": "BAAI/bge-small-en-v1.5",
+      "n": 2000,
+      "text": "short",
+      "texts_per_s": 255.07081578886292
+    },
+    {
+      "batch_size": 32,
+      "device": "mps",
+      "model": "BAAI/bge-small-en-v1.5",
+      "n": 2000,
+      "text": "long",
+      "texts_per_s": 28.681900222068258
+    },
+    {
+      "batch_size": 128,
+      "device": "mps",
+      "model": "BAAI/bge-small-en-v1.5",
+      "n": 2000,
+      "text": "long",
+      "texts_per_s": 23.16405321551943
+    },
+    {
+      "batch_size": 32,
+      "device": "cpu",
+      "model": "BAAI/bge-small-en-v1.5",
+      "n": 2000,
+      "text": "short",
+      "texts_per_s": 268.1243874605955
+    },
+    {
+      "batch_size": 128,
+      "device": "cpu",
+      "model": "BAAI/bge-small-en-v1.5",
+      "n": 2000,
+      "text": "short",
+      "texts_per_s": 239.62250108867514
+    },
+    {
+      "batch_size": 32,
+      "device": "cpu",
+      "model": "BAAI/bge-small-en-v1.5",
+      "n": 2000,
+      "text": "long",
+      "texts_per_s": 19.024443651546072
+    },
+    {
+      "batch_size": 128,
+      "device": "cpu",
+      "model": "BAAI/bge-small-en-v1.5",
+      "n": 2000,
+      "text": "long",
+      "texts_per_s": 16.330677471171416
+    },
+    {
+      "batch_size": 32,
+      "device": "mps",
+      "model": "nomic-ai/nomic-embed-text-v1.5",
+      "n": 2000,
+      "text": "short",
+      "texts_per_s": 67.58720439045385
+    },
+    {
+      "batch_size": 128,
+      "device": "mps",
+      "model": "nomic-ai/nomic-embed-text-v1.5",
+      "n": 2000,
+      "text": "short",
+      "texts_per_s": 61.90710940513908
+    },
+    {
+      "batch_size": 32,
+      "device": "mps",
+      "model": "nomic-ai/nomic-embed-text-v1.5",
+      "n": 2000,
+      "text": "long",
+      "texts_per_s": 7.826859811286399
+    },
+    {
+      "batch_size": 128,
+      "device": "mps",
+      "model": "nomic-ai/nomic-embed-text-v1.5",
+      "n": 2000,
+      "text": "long",
+      "texts_per_s": 6.82462732584243
+    },
+    {
+      "batch_size": 32,
+      "device": "cpu",
+      "model": "nomic-ai/nomic-embed-text-v1.5",
+      "n": 2000,
+      "text": "short",
+      "texts_per_s": 62.73804734946695
+    },
+    {
+      "batch_size": 128,
+      "device": "cpu",
+      "model": "nomic-ai/nomic-embed-text-v1.5",
+      "n": 2000,
+      "text": "short",
+      "texts_per_s": 59.1034978274988
+    },
+    {
+      "batch_size": 32,
+      "device": "cpu",
+      "model": "nomic-ai/nomic-embed-text-v1.5",
+      "n": 2000,
+      "text": "long",
+      "texts_per_s": 6.520509974422773
+    },
+    {
+      "batch_size": 128,
+      "device": "cpu",
+      "model": "nomic-ai/nomic-embed-text-v1.5",
+      "n": 2000,
+      "text": "long",
+      "texts_per_s": 4.768304238685416
+    }
+  ],
+  "torch": "2.14.0"
+}

@@ -1,0 +1,8 @@
+{
+  "successful_requests": 22,
+  "window_s": 600,
+  "req_per_min": 2.2,
+  "rate_limited_in_window_approx": 26,
+  "seed": "filename:CLAUDE.md",
+  "measured_at": 1790692994
+}

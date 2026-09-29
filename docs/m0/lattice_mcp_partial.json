@@ -1,0 +1,22 @@
+{
+  "covered": 61379,
+  "fetch_requests": 657,
+  "incomplete": 0,
+  "leaf_sum": 61379,
+  "n_leaves": 95,
+  "n_overflows": 1,
+  "nodes": 192,
+  "overflows": [
+    [
+      148,
+      1310
+    ]
+  ],
+  "partial": false,
+  "projected_fetch_requests": 657,
+  "projected_hours": 1.415,
+  "projected_nodes": 192,
+  "root_total": 65408,
+  "seed": "filename:.mcp.json",
+  "unreachable": 310
+}
