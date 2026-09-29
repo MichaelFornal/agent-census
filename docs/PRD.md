@@ -38,8 +38,14 @@ minutes on it and wants to talk to the builder. It should prove three things:
 | Plugin manifests | `path:.claude-plugin filename:plugin.json` | 25,408 |
 
 These are seeds, not published facts. Every published number is re-derived by a named query (§7).
+`total_count` is approximate: M0 found leaf counts over disjoint size windows summing to 5.8% more
+than the root count, so no stage may treat it as exact.
+
 Heavy vendoring is expected (433k SKILL.md files ≠ 433k skills), so dedup and lineage are central
-to the analysis, not cleanup.
+to the analysis, not cleanup. M0 showed that the vendoring holds **by name, not by text**: about
+97% of sampled files are textually distinct at MinHash 0.8, and 100 copies of one well-known skill
+formed 74 text clusters. Lineage therefore needs a name/family key as well as text similarity (S4),
+and tier-2 cost cannot count on text dedup shrinking the corpus.
 
 ## 3. Product: the site's surfaces
 
@@ -96,12 +102,12 @@ nothing.
 
 | # | Stage | Output tables | Mechanics |
 |---|---|---|---|
-| S1 | discover | `repo_hits(repo, path, component, query_id)` | Code search with an **adaptive partition lattice**: run a query; if `total_count > 1000`, bisect the `size:` byte range; at the size floor, split by path depth or extension. Seed families: `filename:CLAUDE.md`, `path:.claude`, `filename:.mcp.json`, `path:.claude-plugin`. Pace at 10 req/min; on a 429, back off and **decay the penalty after success** (a penalty with no decay is permanent). Search only finds repos; it does not collect every file |
-| S2 | harvest | `repos(meta)`, `harness_files(repo, path, blob_sha, size)`, blob store | Batched GraphQL (start at about 50 aliased repos per query; shrink on timeout or resource-limit errors): `HEAD:.claude` tree (recursive via nested entries), root CLAUDE.md, nested CLAUDE.md paths from S1, `.mcp.json`, and repo metadata (stars, isFork, isTemplate, createdAt, pushedAt, primary language, license, HEAD OID for permalinks). Blob text goes into a content-addressed zstd store keyed by git blob SHA. Fallback: REST git trees plus `raw.githubusercontent.com` |
-| S3 | parse | `artifacts(artifact_id, repo, kind, path, blob_sha, parsed_json)` | One parser per kind: CLAUDE.md (sections, `@imports`, command blocks, length); `settings*.json` (permissions allow/deny/ask, hooks by event, env keys, model, sandbox); SKILL.md, agent and command files (frontmatter plus body; skill `scripts/`/`references/` presence); `.mcp.json` servers; plugin manifests. **A secret scan (gitleaks-style rules) redacts before persistence.** Malformed files are recorded with an error class, never dropped silently |
-| S4 | dedup & lineage | `clusters(cluster_id, kind, canonical_artifact, size)`, `membership`, `lineage(cluster_id, origin_repo, origin_commit, upstream_lib)`, `mutations(artifact_id, class)` | Tier 1: exact blob SHA. Tier 2: normalized hash (whitespace, case, repo/project names templated out). Tier 3: MinHash LSH near-duplicates (the threshold is set by the dedup audit, §6). Origin = earliest commit in the cluster, or a known upstream library. Each copy's mutation class vs. origin: verbatim / trimmed / extended / re-targeted / rewritten. Forks and template repos are flagged; every count is available with and without them |
+| S1 | discover | `repo_hits(repo, path, component, query_id)` | Code search with an **adaptive partition lattice**: run a query; if `total_count > 1000`, bisect the `size:` byte range; at the size floor, split by path depth or extension, and record whatever still exceeds the cap as unreachable (M0: 39,090 CLAUDE.md files sit in single byte sizes with more than 1,000 hits each, mostly template files). Seed families: `filename:CLAUDE.md`, `path:.claude`, `filename:.mcp.json`, `path:.claude-plugin`, each with `fork:true` (code search leaves forks out by default, and the with/without-forks counts need them). Pace at 10 req/min; on a 429, back off and **decay the penalty after success** (a penalty with no decay is permanent); on a hint-less secondary limit, wait at least 60 s; when `x-ratelimit-remaining` hits 0, sleep until the reset. Secondary limits cut the measured sustained rate to 2.3 req/min, so plan S1 wall time at that rate, not at 10. Search only finds repos; it does not collect every file |
+| S2 | harvest | `repos(meta)`, `harness_files(repo, path, blob_sha, size)`, blob store | Batched GraphQL (start at 25 aliased repos per query: M0 saw no retries at 25, 43% at 50 and total failure at 100; shrink on timeout or resource-limit errors). Latency is the limit, not points (one point per batch at every size). Fetches: the `HEAD:.claude` tree (recursive via nested entries), root CLAUDE.md, nested CLAUDE.md paths from S1, `.mcp.json`, and repo metadata (stars, isFork, isTemplate, createdAt, pushedAt, primary language, license, HEAD OID for permalinks). Blob text is **redacted by the secret scan (gitleaks-style rules plus an entropy gate against over-redacting code) before it is written** to a content-addressed zstd store keyed by git blob SHA; a blob already in the store is not fetched again. About 6.4% of indexed repos are gone by harvest time; they are recorded as missing. Fallback: REST git trees plus `raw.githubusercontent.com` |
+| S3 | parse | `artifacts(artifact_id, repo, kind, path, blob_sha, parsed_json)` | One parser per kind: CLAUDE.md (sections, `@imports`, command blocks, length); `settings*.json` (permissions allow/deny/ask, hooks by event, env keys, model, sandbox); SKILL.md, agent and command files (frontmatter plus body; skill `scripts/`/`references/` presence); `.mcp.json` servers; plugin manifests. Parsers read only redacted blobs (S2). Malformed files are recorded with an error class, never dropped silently |
+| S4 | dedup & lineage | `clusters(cluster_id, kind, canonical_artifact, size)`, `membership`, `lineage(cluster_id, origin_repo, origin_commit, upstream_lib)`, `mutations(artifact_id, class)` | Tier 1: exact blob SHA. Tier 2: normalized hash (whitespace, case, repo/project names templated out). Tier 3: MinHash LSH near-duplicates (0.8 provisionally, from M0; the dedup audit, §6, sets the final threshold). A **family key** (frontmatter `name`, else the skill directory or file stem) groups skills, agents and commands whose text has drifted apart, since text similarity alone misses most edited copies. Origin = earliest commit in the cluster, or a known upstream library. Each copy's mutation class vs. origin: verbatim / trimmed / extended / re-targeted / rewritten. Forks and template repos are flagged; every count is available with and without them |
 | S5 | tier-1 features | `features(repo, technique_id, evidence_ref)`, `glyphs(repo, vector)` | Deterministic detectors (§5) over the whole corpus, plus the glyph vector per harness |
-| S6 | tier-2 extraction | `semantics(cluster_id, pass_id, json)` | `claude -p --output-format json` over **one representative per distinct cluster**, many artifacts per call, strict JSON schema (§5). Two independent passes plus adjudication (§6) |
+| S6 | tier-2 extraction | `semantics(cluster_id, pass_id, json)` | `claude -p --output-format json --json-schema <schema> --tools ""` over **one representative per distinct cluster** (tools disabled because artifact text is untrusted; the schema flag removes the malformed-JSON errors M0 saw). Measured operating point: Sonnet, 20 artifacts per call, 3 parallel workers, about 5,000 valid artifacts/hr; artifacts are truncated to 6,000 characters (29% of M0 representatives were) and the truncation is recorded. Two independent passes plus adjudication (§6) |
 | S7 | taxonomy | `use_cases(id, parent, label)`, `uc_membership`, `technique_candidates`, `uncharted` | A local embedding model over use-case statements and free-text technique descriptions, then UMAP and HDBSCAN into two levels; the LLM writes draft labels and Michael approves them. Uncharted candidates = HDBSCAN noise plus clusters of 3 or fewer members, ranked by nearest-neighbor distance, filtered by an LLM check ("genuinely unlike the rest, or just vague?"), then Michael's final pick |
 | S8 | facts | `facts.json` | Every published number is a **named SQL query** in `facts/` run over the frozen edition. Each record: `{id, query_file, edition_hash, value, computed_at}` |
 | S9 | site data | `site/src/data/*.json` | Per-page slices, evidence cards (excerpt ≤ 25 lines, permalink), glyph vectors, matrix cells, map coordinates |
@@ -110,9 +116,10 @@ nothing.
 `census freeze` writes an edition manifest (hashes of every table plus the blob-store index) and
 stamps `edition_hash`.
 
-**Throughput unknowns.** M0 measures these rather than guessing: search requests the lattice
-needs per seed; GraphQL points and latency per batch; distinct-cluster count (it sets the tier-2
-cost); `claude -p` artifacts/hour sustainable on the Max plan; embeddings/sec on MPS.
+**Throughput.** M0 measured these instead of guessing them; the numbers are in §9.1 and later plans
+use them: search requests the lattice needs per seed; GraphQL points and latency per batch;
+distinct-cluster count (it sets the tier-2 cost); `claude -p` artifacts/hour sustainable on the Max
+plan; embeddings/sec.
 
 ## 5. Analysis contracts
 
@@ -148,17 +155,23 @@ for Michael to accept or reject. Accepted candidates join the catalog, with an L
  "techniques_described": [{"name": "...", "evidence_quote": "<=200 chars, verbatim"}],
  "notable": "why this is unusual, or null"}
 ```
-`evidence_quote` must be a verbatim substring of the artifact. The runner checks this and rejects
-the record if it fails (an anti-fabrication guard).
+`evidence_quote` must be a verbatim substring of the artifact, compared with whitespace collapsed
+(M0: models flatten multi-line text, which is not fabrication). The runner checks this and rejects
+the record if it fails (an anti-fabrication guard). Quotes spliced together from non-adjacent lines
+still fail, and M0 showed those are real fabrications.
 
 ## 6. Validation (machine-run, published on the methodology page)
 
 1. **Structural ground truth.** Where a technique is visible both in structure (tier 1) and in
    prose (tier 2), tier-1 is treated as truth and **tier-2 precision and recall are measured
    against it**.
-2. **Two independent tier-2 passes.** Different prompts, a shuffled artifact order, different
-   models (e.g. Haiku and Sonnet). Cohen's κ is published per field; disagreements are
-   adjudicated by a third Opus pass.
+2. **Two independent tier-2 passes.** Different prompts, a shuffled artifact order, and different
+   models where the second model clears the validity bar. In M0, Haiku returned valid records for
+   only 35–53% of artifacts and ran slower than Sonnet (it spends its output on thinking), so it
+   doesn't clear that bar yet. That conclusion rests on only 9 calls, made without `--json-schema`
+   or whitespace-normalized quote matching, so M1 measures Haiku again under those fixes. If Haiku
+   still falls short, both passes run on Sonnet with different prompts and orders. Cohen's κ is
+   published per field; disagreements are adjudicated by a third Opus pass.
 3. **Planted canaries.** A few hundred synthetic harnesses with known techniques and use cases go
    in at S3 and pass through S4–S7, measuring end-to-end recall. They are tagged `canary=true` and
    excluded from every fact query (CI asserts this).
@@ -181,8 +194,9 @@ human labels."
 ## 8. Stack, repo layout, operability
 
 - **Pipeline:** Python 3.12 managed with `uv`; httpx (async); DuckDB and Parquet; `datasketch`
-  (MinHash LSH); `sentence-transformers` with a small local embedding model (bge-small or
-  nomic-embed on MPS); `umap-learn`; `hdbscan`; `claude -p` through a batching runner that
+  (MinHash LSH); `sentence-transformers` with `BAAI/bge-small-en-v1.5` (M0: about 270 short texts/s, 4× nomic-embed,
+  and MPS gives no gain over CPU for short texts; nomic's remote code also breaks on
+  transformers 5); `umap-learn`; `hdbscan`; `claude -p` through a batching runner that
   respects plan limits and retries with decay.
 - **CLI:** `census run <stage> [--edition fall-2026] [--limit N]`, `census status` (per-stage
   progress and journal), `census facts [--check]`, `census freeze`, `census canaries`.
@@ -304,12 +318,17 @@ API-equivalent cost: $0.0080 per valid artifact. 28.7% of artifacts were truncat
 ## 10. Risks and stated limits (these appear on the methodology page)
 
 - **Coverage.** Code search indexes default branches of public repos only, and not all of them.
-  This is a census of *indexed public default branches*.
+  This is a census of *indexed public default branches*. Files in single byte sizes with more than
+  1,000 hits can't all be reached, and about 6.4% of indexed repos are gone by harvest time. Both
+  are counted and published.
 - **Rate limits and ToS.** One token, official APIs only, never the web UI or grep.app. GraphQL
-  batch size adapts.
-- **Plan limits.** Tier-2 cost scales with the distinct-cluster count. If M0 shows it's too
-  large, pass 1 runs on Haiku everywhere and pass 2 on Sonnet only for a stratified subset plus
-  the disagreements, with κ reported for that subset.
+  batch size adapts. Code search runs at the measured 2.3 req/min, so full S1 takes days (the
+  CLAUDE.md seed alone projects to about 78 hours), which is why it must run unattended and resume.
+- **Plan limits.** Tier-2 cost scales with the distinct-cluster count. M0's rough estimate is
+  about 386 hours per pass over an upper bound of 1.95M clusters. Haiku is not a cheaper fallback
+  at the quality measured so far (§6). If the Max plan's weekly limits bind, pass 1 runs on Sonnet
+  everywhere and pass 2 only on a stratified subset plus the disagreements, with κ reported for
+  that subset.
 - **Privacy.** Redact before storage; permissions only in aggregate; removal path on every page;
   no bulk content release.
 - **LLM labels are estimates.** Every semantic number carries its validation score.
