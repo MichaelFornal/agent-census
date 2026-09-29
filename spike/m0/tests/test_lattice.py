@@ -43,3 +43,29 @@ def test_single_size_over_cap_is_recorded_as_overflow_and_terminates():
 def test_incomplete_results_are_counted():
     r = walk("s", lambda q: (5, True), lo=0, hi=10, cap=1000)
     assert r.incomplete == r.nodes == 2
+
+
+def test_replay_stops_at_first_uncached_query_and_projects():
+    from m0.lattice import replay
+    full = histogram_count({s: 1 for s in range(3000)})
+    calls = []
+
+    def cached(q):
+        calls.append(q)
+        if len(calls) > 6:
+            raise KeyError(q)
+        return full(q)
+
+    r = replay("s", cached, lo=0, hi=4095, cap=1000)
+    assert r["partial"] is True
+    assert r["nodes"] == 6
+    assert 0 < r["covered"] < 3000
+    assert r["projected_nodes"] == round(6 * 3000 / r["covered"])
+
+
+def test_replay_of_complete_cache_is_not_partial():
+    from m0.lattice import replay
+    r = replay("s", histogram_count({0: 600, 3: 600}), lo=0, hi=3, cap=1000)
+    assert r["partial"] is False
+    assert r["nodes"] == 4
+    assert r["projected_nodes"] == 4

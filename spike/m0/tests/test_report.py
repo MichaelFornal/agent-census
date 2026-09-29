@@ -33,3 +33,20 @@ def test_render_rows():
 
 def test_render_marks_missing_sections():
     assert render({}, "2026-10-01").count(NOT_MEASURED) == 5
+
+
+def test_render_partial_lattice_seed_and_search_rate():
+    m = {"lattice": [{"seed": "filename:CLAUDE.md", "root_total": 790528, "nodes": 341, "n_leaves": 150,
+                      "n_overflows": 6, "unreachable": 39090, "fetch_requests": 1200, "projected_hours": 13.4,
+                      "partial": True, "covered": 147810, "projected_nodes": 1824,
+                      "projected_fetch_requests": 6200}],
+         "search_rate": {"req_per_min": 2.5, "window_s": 600}}
+    out = render(m, "2026-10-01")
+    assert ("| `filename:CLAUDE.md` (partial: 19% of files walked) | 790,528 | 341 (projected 1,824) | 150 | 6 "
+            "| 39,090 | projected 6,200 | 13.4 |") in out
+    assert "Measured effective rate under GitHub secondary limits: 2.5 successful requests/min" in out
+
+
+def test_render_lists_seeds_not_reached():
+    out = render({"lattice": M["lattice"], "lattice_missing": ["path:.claude", "path:.claude-plugin"]}, "d")
+    assert "Not reached yet: `path:.claude`, `path:.claude-plugin`." in out

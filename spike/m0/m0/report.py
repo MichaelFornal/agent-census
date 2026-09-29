@@ -28,6 +28,17 @@ def _table(header: list[str], rows: list[list[str]]) -> list[str]:
             + ["| " + " | ".join(r) + " |" for r in rows])
 
 
+def _lattice_row(x: dict) -> list[str]:
+    if x.get("partial"):
+        pct = round(100 * x["covered"] / x["root_total"])
+        return [f"`{x['seed']}` (partial: {pct}% of files walked)", _n(x["root_total"]),
+                f"{_n(x['nodes'])} (projected {_n(x['projected_nodes'])})", _n(x["n_leaves"]),
+                _n(x["n_overflows"]), _n(x["unreachable"]), f"projected {_n(x['projected_fetch_requests'])}",
+                _n(x["projected_hours"])]
+    return [f"`{x['seed']}`", _n(x["root_total"]), _n(x["nodes"]), _n(x["n_leaves"]), _n(x["n_overflows"]),
+            _n(x["unreachable"]), _n(x["fetch_requests"]), _n(x["projected_hours"])]
+
+
 def render(m: dict[str, Any], measured_on: str) -> str:
     out = [f"### 9.1 M0 measured targets (measured {measured_on})", "",
            "Produced by the throwaway `spike/m0` scripts. Raw metrics: `docs/m0/`.", ""]
@@ -37,11 +48,15 @@ def render(m: dict[str, Any], measured_on: str) -> str:
     if lat:
         out += _table(["Seed", "Root total", "Lattice requests", "Leaves", "Floor overflows", "Files unreachable",
                        "Full-fetch requests", "Hours at 10 req/min"],
-                      [[f"`{x['seed']}`", _n(x["root_total"]), _n(x["nodes"]), _n(x["n_leaves"]),
-                        _n(x["n_overflows"]), _n(x["unreachable"]), _n(x["fetch_requests"]),
-                        _n(x["projected_hours"])] for x in lat])
+                      [_lattice_row(x) for x in lat])
     else:
         out.append(NOT_MEASURED)
+    if m.get("lattice_missing"):
+        out += ["", "Not reached yet: " + ", ".join(f"`{q}`" for q in m["lattice_missing"]) + "."]
+    rate = m.get("search_rate")
+    if rate:
+        out += ["", f"Measured effective rate under GitHub secondary limits: {_n(rate['req_per_min'])} "
+                    f"successful requests/min (over {_n(rate['window_s'])} s); hours above assume 10/min."]
     out.append("")
 
     out += ["**S2: GraphQL harvest**", ""]
@@ -108,7 +123,11 @@ def render(m: dict[str, Any], measured_on: str) -> str:
 
 def load() -> dict[str, Any]:
     return {
-        "lattice": [x for k in SEEDS if (x := read_metrics(f"lattice_{k}"))],
+        "lattice": [x for k in SEEDS
+                    if (x := read_metrics(f"lattice_{k}") or read_metrics(f"lattice_{k}_partial"))],
+        "lattice_missing": [q for k, q in SEEDS.items()
+                            if not (read_metrics(f"lattice_{k}") or read_metrics(f"lattice_{k}_partial"))],
+        "search_rate": read_metrics("search_rate"),
         "graphql": read_metrics("graphql"),
         "dedup": read_metrics("dedup"),
         "llm": read_metrics("llm"),
