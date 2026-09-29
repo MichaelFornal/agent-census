@@ -1,0 +1,232 @@
+# Agent Census — Fall 2026 Edition
+
+## 1. Purpose and decisions
+
+**Primary purpose: a hiring showcase.** A hiring manager at a seed–Series B AI startup spends two
+minutes on it and wants to talk to the builder. It should prove three things:
+1. **Data engineering at scale.** Enumerate a rate-limited, capped source completely; dedupe
+   hundreds of thousands of copies; run resumable multi-day pipelines.
+2. **Product sense (FDE).** Turn a messy corpus into something a non-engineer can explore and
+   learn from.
+3. **Deep agent-tooling fluency.** Know the Claude Code harness (hooks, skills, subagents,
+   permissions, MCP, plugins) well enough to catalog how the world uses it.
+
+| Decision | Value |
+|---|---|
+| Subject | **Claude Code only.** The unit of analysis is a repo's **harness**: `CLAUDE.md` (all), `.claude/**` (settings, settings.local, hooks, skills, agents, commands), `.mcp.json`, `.claude-plugin/` |
+| Centerpiece | An explorable atlas plus a findings report. It shows how people build their Claude setups differently, backs standout findings and outliers with visual proof, and catalogs techniques and skill-library use cases |
+| Organizing axis | **By use case** (what Claude is being made to do), with techniques inside each one, and an **Uncharted** section for unique use cases that fit no category |
+| Not in scope | Ranking or scoring "best" files. Paste-your-own-setup (not in v1). Cross-tool comparison. Live refresh |
+| Cadence | **Dated editions** ("Fall 2026"), frozen and fully verified; the pipeline can be rerun for later editions |
+| Acquisition | **Full enumeration** with two-tier analysis (deterministic over everything, LLM over every distinct artifact) |
+| Hosting | Own subdomain `census.forn.al` (own Vercel project, JS allowed); forn.al links to it |
+| Budget | $0 in cash. Claude Code Max plan (`claude -p`), free APIs, local models. No time cap: quality sets the scope |
+| Validation | Fully machine-run (no human gold set), labelled as such. Michael does editorial review only (taxonomy labels, candidate techniques, the Uncharted list) |
+
+## 2. Corpus facts (measured 2026-09-28, GitHub code search `total_count`, quantized to 1024)
+
+| Component | Query | Files |
+|---|---|---|
+| CLAUDE.md | `filename:CLAUDE.md` | 790,528 |
+| Skills | `path:.claude/skills filename:SKILL.md` | 433,152 |
+| Subagents | `path:.claude/agents extension:md` | 238,080 |
+| Commands | `path:.claude/commands extension:md` | 216,064 |
+| Hooks files | `path:.claude/hooks` | 87,552 |
+| settings.local.json | `path:.claude filename:settings.local.json` | 85,504 |
+| settings.json | `path:.claude filename:settings.json` | 65,408 |
+| .mcp.json | `filename:.mcp.json` | 64,896 |
+| Plugin manifests | `path:.claude-plugin filename:plugin.json` | 25,408 |
+
+These are seeds, not published facts. Every published number is re-derived by a named query (§7).
+Heavy vendoring is expected (433k SKILL.md files ≠ 433k skills), so dedup and lineage are central
+to the analysis, not cleanup.
+
+## 3. Product: the site's surfaces
+
+1. **Findings (landing page).** A headline strip (harnesses counted, distinct artifacts after
+   dedup, copy rate), then 6–8 findings. Each finding has a chart and at least one **evidence
+   card**: a real excerpt, the repo, and a permalink to the exact commit and line range. The
+   finding slots are fixed in advance; which finding fills each slot is chosen after the data
+   comes in:
+
+   | Slot | Built from |
+   |---|---|
+   | Adoption & anatomy | S1/S2 counts, glyph distributions |
+   | Most-used techniques | S5 + S6 prevalence |
+   | Skill lineage (who copied whom, what they change) | S4 |
+   | What runs without asking | settings allow/deny/ask, **aggregate only** |
+   | Archetypes of setup | clusters of glyph vectors |
+   | Uncharted highlights | S7 |
+2. **Use-case atlas (front door 1).** A two-level emergent taxonomy: about 15–30 domains, each
+   with subtypes. Non-coding use cases are tagged explicitly. Each use-case page shows prevalence,
+   the techniques used for it, example harnesses (as glyphs plus evidence cards) and
+   representative skills.
+3. **Technique catalog (front door 2).** Each technique page has a definition, **how it was
+   detected** (a deterministic detector or LLM-judged, stated openly), prevalence, variants, a
+   "how it's wired" excerpt (e.g. the hook JSON plus the script it calls), the use cases that use
+   it, and its measured validation score.
+4. **Matrix (hero visual).** A use-case × technique heatmap; every cell links to its evidence.
+5. **Uncharted.** One-off use cases. Each card shows what it does, why it is unique (nearest
+   neighbor and distance), an excerpt and a link.
+6. **How people build differently.** Every harness is a **fingerprint glyph**: a radial with fixed
+   spoke order for CLAUDE.md size (log), the number of skills, agents, commands and hooks, how
+   broad the permissions are, and the number of MCP servers. There are archetype small multiples
+   and a zoomable 2-D map (UMAP of glyph vectors) of all harnesses.
+7. **Skill libraries.** The most-vendored libraries, their family trees, and mutation analysis:
+   "people copy X, usually delete Y, add Z".
+8. **Methodology.** The pipeline, coverage limits, dedup rates, validation scores, the query
+   behind every number, the edition hash, and the removal-request path.
+
+**Attribution policy.**
+- Evidence cards for techniques and use cases are named and linked (neutral showcase).
+- Permissions and any risky or embarrassing content appear only in aggregate or anonymized, never
+  as a named call-out.
+- Secrets are redacted before storage.
+- Every page links to a removal request (a GitHub issue template). A removed repo is excluded from
+  the next build.
+- Raw file contents are never redistributed in bulk. The public data release is derived features,
+  cluster IDs and short excerpts.
+
+## 4. Pipeline architecture
+
+Nine stages, each its own module, each taking a typed table in and giving a typed table out. Every
+stage is **idempotent and resumable**: work units are keyed by an input hash, and a per-stage
+journal records completion. `kill -9` at any point, then rerun, loses nothing and duplicates
+nothing.
+
+| # | Stage | Output tables | Mechanics |
+|---|---|---|---|
+| S1 | discover | `repo_hits(repo, path, component, query_id)` | Code search with an **adaptive partition lattice**: run a query; if `total_count > 1000`, bisect the `size:` byte range; at the size floor, split by path depth or extension. Seed families: `filename:CLAUDE.md`, `path:.claude`, `filename:.mcp.json`, `path:.claude-plugin`. Pace at 10 req/min; on a 429, back off and **decay the penalty after success** (a penalty with no decay is permanent). Search only finds repos; it does not collect every file |
+| S2 | harvest | `repos(meta)`, `harness_files(repo, path, blob_sha, size)`, blob store | Batched GraphQL (start at about 50 aliased repos per query; shrink on timeout or resource-limit errors): `HEAD:.claude` tree (recursive via nested entries), root CLAUDE.md, nested CLAUDE.md paths from S1, `.mcp.json`, and repo metadata (stars, isFork, isTemplate, createdAt, pushedAt, primary language, license, HEAD OID for permalinks). Blob text goes into a content-addressed zstd store keyed by git blob SHA. Fallback: REST git trees plus `raw.githubusercontent.com` |
+| S3 | parse | `artifacts(artifact_id, repo, kind, path, blob_sha, parsed_json)` | One parser per kind: CLAUDE.md (sections, `@imports`, command blocks, length); `settings*.json` (permissions allow/deny/ask, hooks by event, env keys, model, sandbox); SKILL.md, agent and command files (frontmatter plus body; skill `scripts/`/`references/` presence); `.mcp.json` servers; plugin manifests. **A secret scan (gitleaks-style rules) redacts before persistence.** Malformed files are recorded with an error class, never dropped silently |
+| S4 | dedup & lineage | `clusters(cluster_id, kind, canonical_artifact, size)`, `membership`, `lineage(cluster_id, origin_repo, origin_commit, upstream_lib)`, `mutations(artifact_id, class)` | Tier 1: exact blob SHA. Tier 2: normalized hash (whitespace, case, repo/project names templated out). Tier 3: MinHash LSH near-duplicates (the threshold is set by the dedup audit, §6). Origin = earliest commit in the cluster, or a known upstream library. Each copy's mutation class vs. origin: verbatim / trimmed / extended / re-targeted / rewritten. Forks and template repos are flagged; every count is available with and without them |
+| S5 | tier-1 features | `features(repo, technique_id, evidence_ref)`, `glyphs(repo, vector)` | Deterministic detectors (§5) over the whole corpus, plus the glyph vector per harness |
+| S6 | tier-2 extraction | `semantics(cluster_id, pass_id, json)` | `claude -p --output-format json` over **one representative per distinct cluster**, many artifacts per call, strict JSON schema (§5). Two independent passes plus adjudication (§6) |
+| S7 | taxonomy | `use_cases(id, parent, label)`, `uc_membership`, `technique_candidates`, `uncharted` | A local embedding model over use-case statements and free-text technique descriptions, then UMAP and HDBSCAN into two levels; the LLM writes draft labels and Michael approves them. Uncharted candidates = HDBSCAN noise plus clusters of 3 or fewer members, ranked by nearest-neighbor distance, filtered by an LLM check ("genuinely unlike the rest, or just vague?"), then Michael's final pick |
+| S8 | facts | `facts.json` | Every published number is a **named SQL query** in `facts/` run over the frozen edition. Each record: `{id, query_file, edition_hash, value, computed_at}` |
+| S9 | site data | `site/src/data/*.json` | Per-page slices, evidence cards (excerpt ≤ 25 lines, permalink), glyph vectors, matrix cells, map coordinates |
+
+**Storage.** One DuckDB catalog, Parquet per stage table, and the blob store, all outside git.
+`census freeze` writes an edition manifest (hashes of every table plus the blob-store index) and
+stamps `edition_hash`.
+
+**Throughput unknowns.** M0 measures these rather than guessing: search requests the lattice
+needs per seed; GraphQL points and latency per batch; distinct-cluster count (it sets the tier-2
+cost); `claude -p` artifacts/hour sustainable on the Max plan; embeddings/sec on MPS.
+
+## 5. Analysis contracts
+
+**Detector interface (tier 1).**
+`detect(harness) -> list[Evidence(technique_id, artifact_id, locator, confidence=1.0)]`.
+Pure functions with fixture tests.
+
+**Seed technique catalog** (each gets a detector where it is visible in structure, otherwise it is
+LLM-detected):
+- *Hooks:* a Stop-hook verification gate (tests, lint or typecheck before finishing); PreToolUse
+  guards (blocking destructive commands, protecting paths); PostToolUse formatters; SessionStart
+  context injection; UserPromptSubmit augmentation; notification hooks.
+- *Orchestration:* subagents with restricted tool lists; per-agent model routing; planner/executor
+  split; parallel reviewer fan-out.
+- *Memory and context:* `@import` chains; per-directory CLAUDE.md files; progress or handoff
+  files; context-budget rules.
+- *Skills:* a skill that wraps a CLI or script (`scripts/`); progressive disclosure
+  (`references/`); templates; meta-skills (skills that write skills).
+- *Instruction style:* rules that give a rationale; hard prohibitions; a commands table; a
+  verification protocol; a persona or role.
+- *Permissions:* allowlist breadth, deny rules, bypass modes, sandbox settings.
+- *Other:* `$ARGUMENTS` command workflows; MCP server composition; plugins and marketplaces.
+
+**Open technique discovery.** Tier 2 also returns free-text technique descriptions. They are
+clustered in S7; any cluster that doesn't map to a catalog entry becomes a `technique_candidate`
+for Michael to accept or reject. Accepted candidates join the catalog, with an LLM detector.
+
+**Tier-2 extraction schema (per artifact):**
+```json
+{"use_case": "one sentence: what Claude is being made to do",
+ "domain_guess": "free text",
+ "non_coding": true,
+ "techniques_described": [{"name": "...", "evidence_quote": "<=200 chars, verbatim"}],
+ "notable": "why this is unusual, or null"}
+```
+`evidence_quote` must be a verbatim substring of the artifact. The runner checks this and rejects
+the record if it fails (an anti-fabrication guard).
+
+## 6. Validation (machine-run, published on the methodology page)
+
+1. **Structural ground truth.** Where a technique is visible both in structure (tier 1) and in
+   prose (tier 2), tier-1 is treated as truth and **tier-2 precision and recall are measured
+   against it**.
+2. **Two independent tier-2 passes.** Different prompts, a shuffled artifact order, different
+   models (e.g. Haiku and Sonnet). Cohen's κ is published per field; disagreements are
+   adjudicated by a third Opus pass.
+3. **Planted canaries.** A few hundred synthetic harnesses with known techniques and use cases go
+   in at S3 and pass through S4–S7, measuring end-to-end recall. They are tagged `canary=true` and
+   excluded from every fact query (CI asserts this).
+4. **LLM audit of detectors.** An LLM judge re-reads a random sample of hits and misses for each
+   tier-1 detector to estimate precision and recall.
+5. **Dedup audit.** An LLM judge rates sampled cluster pairs, oversampling pairs near the
+   threshold. The false-merge and false-split rates set the MinHash threshold and are published.
+6. **Publishing rule.** Any technique or use case whose measured agreement or precision is below
+   **0.85** ships flagged "estimated ±" with its score, or doesn't ship.
+
+The methodology page says plainly: "Validated by machine agreement and planted canaries, not by
+human labels."
+
+## 7. Numbers-provenance contract
+
+- The site can only print numbers from `facts.json`. Hard-coded digits in page copy fail CI.
+- `census facts --check` re-runs every query against the frozen edition and fails on any drift.
+- Every number carries the edition date. Nothing is presented as live.
+
+## 8. Stack, repo layout, operability
+
+- **Pipeline:** Python 3.12 managed with `uv`; httpx (async); DuckDB and Parquet; `datasketch`
+  (MinHash LSH); `sentence-transformers` with a small local embedding model (bge-small or
+  nomic-embed on MPS); `umap-learn`; `hdbscan`; `claude -p` through a batching runner that
+  respects plan limits and retries with decay.
+- **CLI:** `census run <stage> [--edition fall-2026] [--limit N]`, `census status` (per-stage
+  progress and journal), `census facts [--check]`, `census freeze`, `census canaries`.
+- **Site:** Astro (static) with JS islands. Observable Plot for standard charts; D3 for glyphs,
+  matrix and map; Pagefind for static search. Vercel project → `census.forn.al`.
+- **Layout:**
+  ```
+  pipeline/  s1_discover.py … s9_site_data.py, parsers/, detectors/, llm/, store.py, journal.py
+  facts/     one .sql per published number
+  site/      Astro app
+  tests/     fixtures/ (real-shaped harnesses), canaries/, test_* per parser/detector/stage
+  docs/      PRD.md, methodology source
+  data/      (gitignored) duckdb, parquet, blobs, editions/
+  ```
+- **CI (public GitHub Actions):** unit tests for every parser and detector on fixtures; schema
+  checks on every stage's output; `census facts --check` on the frozen sample edition; an
+  adversarial site pass that assumes every page is wrong (numbers vs facts, broken permalinks,
+  un-redacted secret patterns, canary leakage); a link checker.
+- **Anti-slop:** README and launch post hand-written by Michael; `Assisted-by:` commit trailer; no
+  prose tells ("not just X but Y", emoji bullets, gratuitous bold, "pivotal", "testament"); no
+  silent catches or TODO stubs in shipped code.
+
+## 9. Milestones
+
+| M | Milestone | Exit criterion |
+|---|---|---|
+| M0 | Measurement spike (the code is throwaway) | A targets table filled with measured values: lattice requests per seed, GraphQL points and latency per batch, distinct-cluster ratio on a 5k sample, `claude -p` artifacts/hr, embeddings/sec. Plans after M0 use these numbers |
+| M1 | Vertical slice (~1,000 harnesses) | S1–S9 end to end; a crude site with one finding, one use-case page, one technique page; `facts --check` green; CI running |
+| M2 | Full discover and harvest (unattended) | The whole repo universe harvested; resume verified with `kill -9` mid-S1 and mid-S2, with no loss or duplication |
+| M3 | Parse, dedup, lineage and tier-1 on the full corpus | Dedup audit published; detectors pass the canaries; LLM detector audit done |
+| M4 | Tier-2, taxonomy, validation | κ per field; taxonomy labels, candidate techniques and Uncharted approved by Michael |
+| M5 | Full site | All 8 surfaces, glyphs, matrix, map; the adversarial pass is green |
+| M6 | Freeze and launch | Findings chosen, `census freeze`, hand-written README and launch post, deployed to `census.forn.al`, linked from forn.al |
+
+## 10. Risks and stated limits (these appear on the methodology page)
+
+- **Coverage.** Code search indexes default branches of public repos only, and not all of them.
+  This is a census of *indexed public default branches*.
+- **Rate limits and ToS.** One token, official APIs only, never the web UI or grep.app. GraphQL
+  batch size adapts.
+- **Plan limits.** Tier-2 cost scales with the distinct-cluster count. If M0 shows it's too
+  large, pass 1 runs on Haiku everywhere and pass 2 on Sonnet only for a stratified subset plus
+  the disagreements, with κ reported for that subset.
+- **Privacy.** Redact before storage; permissions only in aggregate; removal path on every page;
+  no bulk content release.
+- **LLM labels are estimates.** Every semantic number carries its validation score.
+- **Point in time.** Edition-dated; not live.
