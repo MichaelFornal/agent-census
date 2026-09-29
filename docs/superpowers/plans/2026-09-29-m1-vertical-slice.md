@@ -37,6 +37,17 @@
 - Pushing to GitHub and creating a remote are outward-facing. Ask Michael first (Task 23).
 - Out of scope for M1, and deferred to the milestones that own them: canaries and `census canaries` (M3); the dedup audit and LLM detector audit (M3); κ, adjudication and the Uncharted LLM filter (M4); glyph rendering, matrix, map, methodology page, removal-request links, the adversarial site pass and the link checker (M5); deploy (M6).
 
+## Decisions (Michael, 2026-09-29)
+
+- **Execution:** subagent-driven (superpowers:subagent-driven-development), on branch `m1` in a git worktree (superpowers:using-git-worktrees). It merges into `main` after Task 23's CI run is green.
+- **M0 lattice:** it keeps running during Tasks 1–21 (they make no code-search requests). Task 22 kills it just before S1. It resumes afterwards from its cache.
+- **Slice:** 1,000 repos.
+- **Lineage origin:** the repo `createdAt` proxy (ruling below) is approved.
+- **Haiku re-measurement:** skipped in M1 and deferred to M4 (PRD §6.2 updated). Pass b stays in the code and is tested offline only.
+- **Labels:** Task 22 auto-approves the three largest level-1 use cases whose draft label has no digit. Michael reviews the labels afterwards.
+- **Publishing:** a public repo `MichaelFornal/agent-census`, pre-approved. Task 23 still stops if the secret scan finds anything unexpected.
+- **Every ruling below is approved as written.**
+
 ## Rulings this plan makes (record them in the ledger when executing)
 
 - **Lineage origin.** "Earliest commit in the cluster" needs a per-file history query that M1 doesn't make. M1 uses the member repo with the earliest `createdAt` and records `origin_basis = "repo_created_at"`. M3 decides whether to pay for history queries.
@@ -6059,7 +6070,7 @@ git commit -m "m1: CI runs tests, the fixture edition, facts --check, the digits
 
 ### Task 22: The live slice run (~1,000 harnesses), with kill -9 resume checks
 
-This task runs against GitHub and the Max plan. Record every number it measures in `docs/m1/slice-run.md`: for each stage, the wall time, the requests or calls it made and their rates, and the anomalies you saw. M2's plan uses these numbers the way M1 used §9.1.
+This task runs against GitHub and the Max plan. The work runs in a worktree, so first `export CENSUS_DATA=/Users/michaelfornal/Documents/agent-census/data`. That way the edition and blob store live in the main checkout's gitignored `data/` and outlive the worktree. Read every `data/...` path below as relative to that directory. Record every number it measures in `docs/m1/slice-run.md`: for each stage, the wall time, the requests or calls it made and their rates, and the anomalies you saw. M2's plan uses these numbers the way M1 used §9.1.
 
 **Files:**
 - Create: `docs/m1/slice-run.md`, `editorial/m1-slice/taxonomy_labels.json` (via `census labels`, then Michael edits it)
@@ -6067,7 +6078,7 @@ This task runs against GitHub and the Max plan. Record every number it measures 
 - [ ] **Step 1: Check the code-search budget and ask Michael**
 
 Run: `pgrep -fl m0.lattice`
-If it prints a process, **stop and ask Michael**: "The M0 lattice is still using the code-search budget. S1 must not run at the same time. Should I pause it (kill it; its cache resumes it later with `uv run python -m m0.lattice --seed claude_md --seed plugin --seed claude_dir` from `spike/m0`), or wait for it to finish?" Do what he decides. If Task 6 Step 4 (the `fork:true` and `path:/` probe) was skipped, run it now.
+If it prints a process, pause it (Michael's decision): run `pkill -f m0.lattice`, then confirm with `pgrep -fl m0.lattice` that nothing is left. Record in the ledger which seed it was on (the last line of `data/m0/lattice_full.log`). After this task finishes, restart it from the main checkout: `cd spike/m0 && nohup uv run python -m m0.lattice --seed claude_md --seed plugin --seed claude_dir >> ../../data/m0/lattice_full.log 2>&1 &`. Its search cache replays the completed seeds without making requests. If Task 6 Step 4 (the `fork:true` and `path:/` probe) was skipped, run it now.
 
 - [ ] **Step 2: Install the embedding extra**
 
@@ -6125,23 +6136,29 @@ print(con.execute('SELECT reason, count(*) FROM semantics_rejects GROUP BY 1 ORD
 
 Expected: the pair is equal. The valid rate should be at or above M0's 0.90 (the schema flag and whitespace-normalized matching should raise it). Record the artifacts/hr (valid records ÷ wall hours), the valid rate, the reject reasons and whether any plan limit was hit. If the stage stopped with `plan limit`, rerun it after the limit resets and record how long the wait was.
 
-- [ ] **Step 7: S6 pass b on Haiku (the PRD §6.2 re-measurement)**
+- [ ] **Step 7: S7, then auto-approve three labels (Michael's decision)**
 
-```bash
-date -u; uv run census run s6 --pass b --limit 200; date -u
-```
-
-Record pass b's valid rate and artifacts/hr from the same query. If Haiku still falls below 0.85, write that in `docs/m1/slice-run.md` as the input for M4's model choice. Don't change the PRD here.
-
-- [ ] **Step 8: S7, then Michael approves labels**
+The Haiku pass b re-measurement is skipped in M1 (Michael's decision; M4 does it).
 
 ```bash
 uv run census run s7 && uv run census labels
+uv run python -c "
+import json, re
+from pipeline.editorial import labels_path
+p = labels_path('m1-slice')
+labels = json.loads(p.read_text())
+top = sorted((k for k, v in labels.items() if v.get('level') == 1 and not re.search(r'\d', v.get('draft_label', ''))),
+             key=lambda k: -labels[k]['size'])[:3]
+for k in top:
+    labels[k]['status'] = 'approved'
+p.write_text(json.dumps(labels, indent=2, sort_keys=True) + '\n')
+print('approved', [(k, labels[k]['draft_label'], labels[k]['size']) for k in top])
+"
 ```
 
-**Stop and ask Michael** to review `editorial/m1-slice/taxonomy_labels.json`: set `"status": "approved"` on at least one use case (optionally editing `"label"`, which may not contain digits), and say whether any `technique_candidates` or `uncharted` rows look worth keeping (M4 formalizes this). Wait for his edit before continuing.
+Expected: three use cases are approved. Put the approved ids and labels in `docs/m1/slice-run.md`, together with the ten largest `technique_candidates` and the top ten `uncharted` rows, for Michael's later review.
 
-- [ ] **Step 9: Freeze, facts, site data, site**
+- [ ] **Step 8: Freeze, facts, site data, site**
 
 ```bash
 uv run census freeze && uv run census facts && uv run census facts --check
@@ -6152,9 +6169,9 @@ cd site && npm run build && cd ..
 
 Expected: `facts --check` prints the match line. The site builds with one finding, the approved use-case pages and every technique page. Open the built index, one technique page and one use-case page, and check them against `facts.json` by eye. Record anything that looks wrong as a finding for M5.
 
-- [ ] **Step 10: Write `docs/m1/slice-run.md` and commit**
+- [ ] **Step 9: Write `docs/m1/slice-run.md` and commit**
 
-The document has one section per stage (S1–S9). Each section gives that stage's measured values from the steps above, its wall time, the kill -9 result where one was run, and its anomalies. A final section, "Inputs for M2", lists the numbers M2's plan should use: effective code-search rate, GraphQL latency per 25-repo batch with a depth-4 tree, blob fetch rate, missing-repo share, artifacts per harness, distinct ratio, S6 artifacts/hr and valid rate for both passes. These are measured values copied from the command output. Leave out estimates that weren't measured.
+The document has one section per stage (S1–S9). Each section gives that stage's measured values from the steps above, its wall time, the kill -9 result where one was run, and its anomalies. A final section, "Inputs for M2", lists the numbers M2's plan should use: effective code-search rate, GraphQL latency per 25-repo batch with a depth-4 tree, blob fetch rate, missing-repo share, artifacts per harness, distinct ratio, S6 artifacts/hr and valid rate for pass a. These are measured values copied from the command output. Leave out estimates that weren't measured.
 
 ```bash
 git add docs/m1/slice-run.md editorial/m1-slice/taxonomy_labels.json
@@ -6184,16 +6201,19 @@ for path in subprocess.run(['git', 'ls-files'], capture_output=True, text=True, 
 
 Expected: hits only in `tests/` and `spike/m0/tests/` (fake secrets used as test inputs) and in `tests/fixtures/harnesses/epsilon__infra/dot.mcp.json.fixture`. Anything else must be investigated before pushing.
 
-- [ ] **Step 2: Ask Michael**
+- [ ] **Step 2: Create the public repo (pre-approved by Michael)**
 
-**Stop and ask Michael:** "M1 is ready to publish. PRD §8 says CI runs on public GitHub Actions, so this needs a public GitHub repo. Should I create it (`gh repo create <name> --public --source . --remote origin --push`)? Which name should it have, and should it go under your account or an org? The scan in Step 1 found only the expected test fixtures." Don't push without his answer.
-
-- [ ] **Step 3: Push and watch CI**
-
-After Michael approves, run the command he approved, then:
+Proceed only if Step 1 found nothing unexpected. Otherwise stop and show Michael the hits. From the worktree on branch `m1`:
 
 ```bash
-gh run watch --exit-status "$(gh run list --limit 1 --json databaseId -q '.[0].databaseId')"
+gh repo create MichaelFornal/agent-census --public --source . --remote origin
+git push -u origin main m1
 ```
 
-Expected: the `ci` run succeeds. If it fails, fix the cause (usually an environment difference between macOS and Ubuntu), commit, push and watch again. M1's exit criterion is met when this run is green and Task 22's `facts --check` passed.
+- [ ] **Step 3: Watch CI on `m1`**
+
+```bash
+gh run watch --exit-status "$(gh run list --branch m1 --limit 1 --json databaseId -q '.[0].databaseId')"
+```
+
+Expected: the `ci` run succeeds. If it fails, fix the cause (usually an environment difference between macOS and Ubuntu), commit, push and watch again. M1's exit criterion is met when this run is green and Task 22's `facts --check` passed. Then use superpowers:finishing-a-development-branch to merge `m1` into `main`, push `main`, and confirm CI is green there too.

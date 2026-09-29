@@ -169,8 +169,9 @@ still fail, and M0 showed those are real fabrications.
    models where the second model clears the validity bar. In M0, Haiku returned valid records for
    only 35–53% of artifacts and ran slower than Sonnet (it spends its output on thinking), so it
    doesn't clear that bar yet. That conclusion rests on only 9 calls, made without `--json-schema`
-   or whitespace-normalized quote matching, so M1 measures Haiku again under those fixes. If Haiku
-   still falls short, both passes run on Sonnet with different prompts and orders. Cohen's κ is
+   or whitespace-normalized quote matching; M4 re-measures Haiku under those fixes before choosing
+   pass 2's model (M1 skips it). If Haiku still falls short, both passes run on Sonnet with different
+   prompts and orders. Cohen's κ is
    published per field; disagreements are adjudicated by a third Opus pass.
 3. **Planted canaries.** A few hundred synthetic harnesses with known techniques and use cases go
    in at S3 and pass through S4–S7, measuring end-to-end recall. They are tagged `canary=true` and
