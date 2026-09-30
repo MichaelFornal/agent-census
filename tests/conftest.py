@@ -24,3 +24,9 @@ def isolated_data(tmp_path, monkeypatch):
     d = tmp_path / "data"
     monkeypatch.setenv("CENSUS_DATA", str(d))
     return d
+
+
+@pytest.fixture
+def ctx(tmp_path):
+    from pipeline.context import make_ctx
+    return make_ctx("test", site_data=tmp_path / "site-data")
