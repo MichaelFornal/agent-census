@@ -40,9 +40,9 @@ def run_all(ctx: Ctx, opts: Opts) -> int:
         if run_stage(s, ctx, opts).stopped:
             return 2
     _freeze(ctx)
-    run_stage("s8", ctx, Opts())
-    run_stage("s9", ctx, Opts())
-    return 0
+    if run_stage("s8", ctx, Opts()).stopped:
+        return 2
+    return 2 if run_stage("s9", ctx, Opts()).stopped else 0
 
 
 def status(ctx: Ctx) -> None:
@@ -83,8 +83,11 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+    parser = _parser()
+    args = parser.parse_args(argv)
     if args.cmd == "run":
+        if args.reset and args.stage in ("all", "s8", "s9"):
+            parser.error("--reset applies to one of s1..s7")
         offline = args.fixtures is not None
         kw = {"fixtures": args.fixtures, "llm": args.llm or ("fake" if offline else "claude"),
               "embedder": args.embedder or ("hash" if offline else "bge")}
