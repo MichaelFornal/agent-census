@@ -1,6 +1,8 @@
 import json
 
-from pipeline.redact import redact
+import pytest
+
+from pipeline.redact import REDACT_VERSION, redact, rules_fingerprint
 
 GHP = "ghp_" + "A1b2C3d4E5" * 4  # 40 chars after prefix
 
@@ -91,3 +93,36 @@ def test_assigned_secret_redacts_high_entropy_value():
 def test_redaction_is_idempotent():
     once, _ = redact('{"CLOUD_API_KEY": "Zq8Xv2Lm9Pw4Rt7Ky3Nb"}')
     assert redact(once) == (once, {})
+
+
+SAMPLES = [
+    "token " + GHP,
+    "curl -u admin:hunter2secret https://x.example/api",
+    "postgres://app:S3cr3tPassw0rd@db.internal:5432/app",
+    'claude --api-key "sk-ant-' + "a1B2" * 8 + '"',
+    "mysql -u root -pS3cr3tPassw0rd app",
+    "Authorization: Bearer " + "abcDEF123456" * 3,
+    '{"env": {"CLOUD_API_KEY": "Zq8Xv2Lm9Pw4Rt7Ky3Nb"}}',
+    "curl -u admin:" + GHP + " https://x.example",
+]
+
+
+@pytest.mark.parametrize("text", SAMPLES)
+def test_redact_is_idempotent_for_every_rule_shape(text):
+    once, counts = redact(text)
+    assert counts, text  # every sample holds something to redact
+    assert redact(once) == (once, {})
+
+
+def test_a_later_rule_does_not_relabel_an_earlier_placeholder():
+    out, counts = redact("curl -u admin:" + GHP + " https://x.example")
+    assert out == "curl -u admin:[REDACTED:github_token] https://x.example"
+    assert counts == {"github_token": 1}
+
+
+PINNED = (1, "d75e145d78bb7a16")
+
+
+def test_rule_changes_require_a_version_bump():
+    assert (REDACT_VERSION, rules_fingerprint()) == PINNED, (
+        "the redaction rules changed: bump REDACT_VERSION in pipeline/redact.py and pin the new fingerprint here")

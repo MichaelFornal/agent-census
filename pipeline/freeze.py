@@ -5,16 +5,37 @@ import time
 
 from pipeline.context import Ctx
 from pipeline.paths import manifest_path
+from pipeline.redact import REDACT_VERSION
 from pipeline.schemas import SCHEMAS
 from pipeline.store import atomic_write
 
 
-def edition_hash(ctx: Ctx) -> tuple[str, dict]:
+def fetched_blobs(ctx: Ctx) -> list[str]:
+    rows = ctx.tables.connect().execute(
+        "SELECT DISTINCT blob_sha FROM harness_files WHERE fetched ORDER BY blob_sha").fetchall()
+    return [r[0] for r in rows]
+
+
+def edition_hash(ctx: Ctx, with_redact_version: bool = True) -> tuple[str, dict]:
+    """with_redact_version=False reproduces the hash of a manifest written before the field existed (M1)."""
     tables = {t: {p: hashlib.sha256((ctx.tables.dir(t) / f"{p}.parquet").read_bytes()).hexdigest()
                   for p in sorted(ctx.tables.parts(t))} for t in sorted(SCHEMAS)}
-    blobs = sorted({f["blob_sha"] for f in ctx.tables.read("harness_files") if f["fetched"]})
-    digest = hashlib.sha256(json.dumps({"tables": tables, "blobs": blobs}, sort_keys=True).encode()).hexdigest()
+    blobs = fetched_blobs(ctx)
+    body: dict = {"tables": tables, "blobs": blobs}
+    if with_redact_version:
+        body["redact_version"] = REDACT_VERSION  # the blob set names content; the version names what was removed
+    digest = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()
     return digest, {"tables": tables, "blob_count": len(blobs)}
+
+
+def stale_blobs(ctx: Ctx) -> int:
+    return sum(1 for oid in fetched_blobs(ctx) if ctx.blobs.version(oid) != REDACT_VERSION)
+
+
+def reredact(ctx: Ctx) -> tuple[int, int]:
+    """Bring every blob of the edition to the current redaction version. Returns (rewritten, total)."""
+    oids = fetched_blobs(ctx)
+    return sum(ctx.blobs.ensure_current(oid) for oid in oids), len(oids)
 
 
 UNIQUE = [  # (table, key columns, stage to reset)
@@ -73,9 +94,15 @@ def freeze(ctx: Ctx) -> dict:
     bad = integrity_violations(ctx)
     if bad:
         raise SystemExit("freeze refused, stale rows:\n" + "\n".join(bad))
+    stale = stale_blobs(ctx)
+    if stale:
+        raise SystemExit(f"freeze refused: {stale} blobs were redacted under rules older than v{REDACT_VERSION}, "
+                         f"so parsed artifacts may hold text the current rules remove. Run "
+                         f"`census reredact --edition {ctx.edition}`, then `census run s3 --reset` and every "
+                         f"stage after it")
     digest, body = edition_hash(ctx)
     manifest = {"edition": ctx.edition, "edition_hash": digest, "frozen_at": time.strftime("%Y-%m-%d", time.gmtime()),
-                **body}
+                "redact_version": REDACT_VERSION, **body}
     atomic_write(manifest_path(ctx.edition), (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode())
     return manifest
 

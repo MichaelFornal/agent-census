@@ -5,6 +5,7 @@ from pipeline.context import Ctx, Opts
 from pipeline.journal import unit_key
 from pipeline.kinds import PARSED_KINDS, artifact_id
 from pipeline.parsers import parse
+from pipeline.redact import REDACT_VERSION
 from pipeline.runner import RunStats, Unit, run_batched
 
 VERSION = 1
@@ -18,7 +19,7 @@ def run(ctx: Ctx, opts: Opts) -> RunStats:
         paths_by_repo.setdefault(f["repo"], []).append(f["path"])
     todo = sorted((f for f in files if f["fetched"] and f["kind"] in PARSED_KINDS),
                   key=lambda f: (f["repo"], f["path"]))
-    units = [Unit(unit_key("s3", VERSION, f["repo"], f["path"], f["blob_sha"]), f) for f in todo]
+    units = [Unit(unit_key("s3", VERSION, REDACT_VERSION, f["repo"], f["path"], f["blob_sha"]), f) for f in todo]
 
     def work(batch: list[Unit]) -> dict[str, list[dict]]:
         rows = []

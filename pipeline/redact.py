@@ -3,10 +3,15 @@
 Rules may keep surrounding context through named groups `pre` and `post`; only the rest is replaced.
 The generic key=value rule has a gate: M0 found it over-redacting code such as `tokens = count(text)`.
 """
+import hashlib
+import inspect
+import json
 import math
 import re
 from collections import Counter
 from collections.abc import Callable
+
+REDACT_VERSION = 1  # bump when RULES, a gate or the placeholder format changes; tests/test_redact.py pins the rules
 
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z_.]*(\([^)]*\))?")
 ENV_REF = re.compile(r"process\.env|os\.environ|getenv|ENV\[", re.I)
@@ -54,14 +59,25 @@ RULES: list[tuple[str, re.Pattern[str], Gate]] = [
 ]
 
 
+def rules_fingerprint() -> str:
+    """Changes whenever a rule, a gate or a gate's helper changes, so a test can demand a version bump."""
+    spec = [[name, rx.pattern, rx.flags, inspect.getsource(gate) if gate else None] for name, rx, gate in RULES]
+    helpers = [IDENTIFIER.pattern, ENV_REF.pattern, ENV_REF.flags, inspect.getsource(_entropy)]
+    return hashlib.sha256(json.dumps([spec, helpers]).encode()).hexdigest()[:16]
+
+
 def redact(text: str) -> tuple[str, dict[str, int]]:
+    """Idempotent: a placeholder is never matched again, by a later rule or by a later run over stored text."""
     counts: dict[str, int] = {}
     for name, rx, gate in RULES:
         def sub(m: re.Match[str], name: str = name, gate: Gate = gate) -> str:
             g = m.groupdict()
             pre, post = g.get("pre") or "", g.get("post") or ""
             whole = m.group(0)
-            if gate is not None and not gate(whole[len(pre):len(whole) - len(post)]):
+            secret = whole[len(pre):len(whole) - len(post)]
+            if secret.startswith("[REDACTED:"):
+                return whole
+            if gate is not None and not gate(secret):
                 return whole
             counts[name] = counts.get(name, 0) + 1
             return f"{pre}[REDACTED:{name}]{post}"

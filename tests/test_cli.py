@@ -85,3 +85,11 @@ def test_reset_with_all_is_a_usage_error(monkeypatch):
     with pytest.raises(SystemExit) as e:
         cli.main(["run", "all", "--edition", "test", "--reset"])
     assert e.value.code == 2
+
+
+def test_reredact_reports_how_many_blobs_it_rewrote(fctx, capsys):
+    from helpers import run_until
+
+    run_until(fctx, "s2")
+    assert cli.main(["reredact", "--edition", "test"]) == 0
+    assert "re-redacted 0 of" in capsys.readouterr().out

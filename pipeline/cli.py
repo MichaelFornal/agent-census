@@ -79,6 +79,7 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_parser("status", parents=[common])
     sub.add_parser("freeze", parents=[common])
     sub.add_parser("labels", parents=[common])
+    sub.add_parser("reredact", parents=[common])
     f = sub.add_parser("facts", parents=[common])
     f.add_argument("--check", action="store_true")
     f.add_argument("--site-data", type=Path, help="with --check, where the site's copy of facts.json lives")
@@ -111,6 +112,11 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd == "labels":
         from pipeline.editorial import export_drafts
         print(f"wrote {export_drafts(ctx)}")
+    elif args.cmd == "reredact":
+        from pipeline.freeze import reredact
+        from pipeline.redact import REDACT_VERSION
+        changed, total = reredact(ctx)
+        print(f"re-redacted {changed} of {total} blobs to v{REDACT_VERSION}")
     elif args.cmd == "facts":
         if args.site_data:
             ctx.site_data = args.site_data

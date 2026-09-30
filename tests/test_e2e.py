@@ -55,7 +55,7 @@ def test_fixture_edition_end_to_end(tmp_path, isolated_data):
     again = json.loads(facts_file.read_text())["facts"]
     assert {k: v["value"] for k, v in again.items()} == {k: v["value"] for k, v in facts.items()}
 
-    # Every stored file: raw, decompressed .zst, blob sidecars (.json) and site data.
+    # Every stored file: raw, decompressed .zst (header and text) and site data.
     needles = (SECRET.encode(), SECRET[:8].encode())
     seen = set()
     for p in [*isolated_data.rglob("*"), *site.rglob("*")]:

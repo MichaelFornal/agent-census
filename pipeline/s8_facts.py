@@ -17,6 +17,7 @@ import pyarrow as pa
 from pipeline.context import Ctx, Opts
 from pipeline.freeze import edition_hash, load_manifest
 from pipeline.paths import REPO_ROOT, facts_path
+from pipeline.redact import REDACT_VERSION
 from pipeline.runner import RunStats
 from pipeline.schemas import SCHEMAS
 from pipeline.store import atomic_write
@@ -93,7 +94,11 @@ def same(a: Any, b: Any) -> bool:
 
 def run(ctx: Ctx, opts: Opts) -> RunStats:
     manifest = load_manifest(ctx.edition)
-    current, _ = edition_hash(ctx)
+    frozen_under = manifest.get("redact_version", 1)  # M1 manifests predate the field; the M1 rules are version 1
+    if frozen_under != REDACT_VERSION:
+        raise SystemExit(f"{ctx.edition} was frozen under redaction v{frozen_under}; this code is v{REDACT_VERSION}. "
+                         f"Run `census reredact --edition {ctx.edition}`, rerun s3 onward with --reset, then freeze")
+    current, _ = edition_hash(ctx, "redact_version" in manifest)
     if current != manifest["edition_hash"]:
         raise SystemExit(f"{ctx.edition}: data changed since freeze ({current[:12]} != "
                          f"{manifest['edition_hash'][:12]}); run census freeze again")
