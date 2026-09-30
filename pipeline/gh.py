@@ -137,20 +137,23 @@ class SearchClient:
             raw = resp.json()
             self.pacer.on_success()
             _wait_for_window(self.pacer, resp, self.wall)
-            if raw["incomplete_results"] and incomplete < INCOMPLETE_RETRIES:
-                incomplete += 1  # GitHub timed out its own search: the count or the page may be short
+            if raw["incomplete_results"]:
+                # GitHub timed out its own search: the count or the page may be short, so it is never data
+                if incomplete >= INCOMPLETE_RETRIES:
+                    raise RuntimeError(f"code search kept answering incomplete_results: {key}")
+                incomplete += 1
                 self.stats["incomplete_retries"] += 1
                 continue
             body = {
                 "total_count": raw["total_count"],
-                "incomplete_results": raw["incomplete_results"],
+                "incomplete_results": False,
                 "items": [] if per_page == 1 else [
                     {"repo": it["repository"]["full_name"], "fork": it["repository"]["fork"],
                      "path": it["path"], "sha": it["sha"]}
                     for it in raw["items"]
                 ],
             }
-            if per_page == 1 and not body["incomplete_results"]:
+            if per_page == 1:
                 self.cache[key] = body
                 append_jsonl(self.cache_path, {"key": key, "body": body})
             return body

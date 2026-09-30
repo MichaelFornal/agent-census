@@ -140,14 +140,8 @@ def run(ctx: Ctx, opts: Opts) -> RunStats:
         return _run_fixtures(ctx)
     client = SearchClient(github_token(), ctx.root / "search_cache.jsonl")
 
-    incomplete = 0
-
     def count(q: str) -> int:
-        nonlocal incomplete
-        body = client.search(q, per_page=1)
-        if body.get("incomplete_results"):
-            incomplete += 1
-        return body["total_count"]
+        return client.search(q, per_page=1)["total_count"]
 
     full = opts.limit is None
     session = StageSession(ctx, "s1")
@@ -191,7 +185,7 @@ def run(ctx: Ctx, opts: Opts) -> RunStats:
         if full:  # the walk ran to its end, so every repo this family can reach is in repo_hits
             state["families_done"].append(name)
             write_state(ctx, "s1", state)
-        print(f"s1 {name}: {walked} nodes; search {client.stats}; incomplete counts {incomplete}", flush=True)
+        print(f"s1 {name}: {walked} nodes; search {client.stats}", flush=True)
     if full:
         state["complete"] = True
         write_state(ctx, "s1", state)

@@ -1,4 +1,5 @@
 import httpx
+import pytest
 
 from pipeline.gh import GraphQLClient, Pacer, RestClient, SearchClient, api_base, rate_limit_wait
 from pipeline.jsonl import read_jsonl
@@ -164,7 +165,8 @@ def test_incomplete_results_are_retried_and_never_cached(tmp_path):
     assert client.stats["incomplete_retries"] == 1
     stuck = SearchClient("t", tmp_path / "d.jsonl", pacer=still(),
                          transport=httpx.MockTransport(lambda req: httpx.Response(200, json=partial)))
-    assert stuck.search("q", per_page=1)["incomplete_results"] is True
+    with pytest.raises(RuntimeError, match="incomplete_results"):
+        stuck.search("q", per_page=1)
     assert stuck.stats["http_requests"] == 4  # one request and three retries
     assert read_jsonl(tmp_path / "d.jsonl") == []
 

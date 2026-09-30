@@ -71,7 +71,9 @@ class FakeGitHub:
             self.failures[(token, kind, name)] = n + 1
             return True
 
-    def search(self, q: str, page: int, per_page: int) -> dict:
+    def search(self, q: str, page: int, per_page: int, token: str = "") -> dict:
+        if per_page == 1 and "size:0.." in q and self.fail_once(token, "incomplete", q, 1):
+            return {"total_count": 0, "incomplete_results": True, "items": []}  # GitHub's own timeout
         terms = q.split()
         forks = "fork:only" in terms
         out = [f for f in self.files if f["fork"] == forks]
@@ -169,7 +171,7 @@ class FakeGitHub:
                 token = self.headers.get("Authorization", "")
                 if url.path == "/search/code":
                     qs = parse_qs(url.query)
-                    self._send(200, gh.search(qs["q"][0], int(qs["page"][0]), int(qs["per_page"][0])))
+                    self._send(200, gh.search(qs["q"][0], int(qs["page"][0]), int(qs["per_page"][0]), token))
                 elif m := TREE.fullmatch(url.path):
                     self._send(*gh.tree(token, m[1]))
                 else:
