@@ -5,7 +5,7 @@ import sys
 import time
 
 import pytest
-from fake_github import SECRET, FakeGitHub
+from fake_github import N_REPOS, SECRET, FakeGitHub, repo_files
 
 from pipeline.audit import audit
 from pipeline.context import make_ctx
@@ -79,7 +79,7 @@ def reference(github, tmp_path_factory):
 
 def test_s1_killed_three_times_matches_an_uninterrupted_run(github, reference, tmp_path, monkeypatch):
     data = tmp_path / "killed"
-    assert supervise_with_kills("s1", env_for(data, github, "k1"), data) >= 1
+    assert supervise_with_kills("s1", env_for(data, github, "k1"), data) == 3
     got = ctx_at(data, monkeypatch)
     hits = table(got, "repo_hits", HITS)
     assert audit(got, "s1") == [] and read_state(got, "s1")["complete"]
@@ -102,6 +102,7 @@ def test_s1_survives_the_supervisor_being_killed_too(github, reference, tmp_path
     os.kill(sup.pid, signal.SIGKILL)
     os.kill(child, signal.SIGKILL)
     sup.wait()
+    assert not read_state(ctx_at(data, monkeypatch), "s1").get("complete")  # killed mid-run, not after finishing
     supervise("s1", env)  # the stale pid file and the dead child's lock do not block a new supervisor
     got = ctx_at(data, monkeypatch)
     hits = table(got, "repo_hits", HITS)
@@ -113,7 +114,7 @@ def test_s2_killed_three_times_matches_an_uninterrupted_run(github, reference, t
     data = tmp_path / "killed"
     env = env_for(data, github, "k3")
     supervise("s1", env)
-    assert supervise_with_kills("s2", env, data) >= 1
+    assert supervise_with_kills("s2", env, data) == 3
     got = ctx_at(data, monkeypatch)
     repos, files = table(got, "repos", REPOS), table(got, "harness_files", FILES)
     redactions = sorted({(r["blob_sha"], r["rule"], r["n"]) for r in got.tables.read("redactions")})
@@ -122,6 +123,9 @@ def test_s2_killed_three_times_matches_an_uninterrupted_run(github, reference, t
     assert got.attempts("s2").counts()  # the fake's one-time failures were deferred, then harvested
     assert not any(r["error"] and r["error"].startswith(("unreachable", "partial")) for r in got.tables.read("repos"))
     assert not any(SECRET in text for text in blobs.values())
+    assert redactions and any("[REDACTED:assigned_secret]" in text for text in blobs.values())
+    assert any(f["fetched"] for f in got.tables.read("harness_files"))
+    assert len(files) == sum(len(repo_files(i)) for i in range(N_REPOS) if i % 97 != 0)
 
     want = ctx_at(reference, monkeypatch)
     assert repos == table(want, "repos", REPOS) and len(repos) == 1300
