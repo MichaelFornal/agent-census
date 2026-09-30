@@ -5,6 +5,12 @@ qualifiers, and whatever still exceeds the cap is recorded in s1_overflows. Ever
 is cached in search_cache.jsonl, so a killed walk replays from the cache. In slice mode
 (opts.limit = target repos) child ranges are visited in a seeded random order, so the first leaves
 are spread across the size range instead of all being tiny files.
+
+Fork semantics, measured live against GitHub code search: a plain query returns non-fork repos
+only; `fork:true` returns ONLY forks (the same as `fork:only`: 976 vs 6,960 results, 100/100 forks
+on the page); `fork:false` is rejected with a 422. So each seed is walked as two families: the
+plain query (non-forks) and `<seed> fork:only` (forks). Slice mode walks the non-fork families
+only; full mode walks both.
 """
 import math
 import random
@@ -18,10 +24,10 @@ from pipeline.journal import unit_key
 from pipeline.kinds import PARSED_KINDS, classify
 from pipeline.runner import RunStats, Unit, merge_stats, run_batched, run_whole
 
-VERSION = 1
+VERSION = 2  # 2: query strings changed (fork:true replaced by non-fork and fork:only families)
 MAX_SIZE = 393_216  # code search does not index files of 384 KB or more
 CAP = 1000  # code search returns at most 1,000 results per query
-FORK = "fork:true"  # code search leaves forks out by default (M0)
+FORK_MODES = {"nonfork": "", "fork": "fork:only"}  # fork:true returns forks only; fork:false is a 422
 SEEDS = {
     "claude_md": "filename:CLAUDE.md",
     "claude_dir": "path:.claude",
@@ -98,12 +104,17 @@ def node_work(client: SearchClient, batch: list[Unit]) -> dict[str, list[dict]]:
     return out
 
 
-def _repos_by_seed(ctx: Ctx) -> dict[str, set[str]]:
-    have: dict[str, set[str]] = {s: set() for s in SEEDS}
+def _base(q: str, mode: str) -> str:
+    return f"{q} {FORK_MODES[mode]}" if FORK_MODES[mode] else q
+
+
+def _repos_by_seed(ctx: Ctx) -> dict[tuple[str, str], set[str]]:
+    """Repos found so far, per (seed, fork mode) family."""
+    have: dict[tuple[str, str], set[str]] = {(s, m): set() for s in SEEDS for m in FORK_MODES}
     for h in ctx.tables.read("repo_hits"):
-        for s, q in SEEDS.items():
-            if h["query_id"].startswith(f"{q} {FORK} "):
-                have[s].add(h["repo"])
+        for (s, m), repos in have.items():
+            if h["query_id"].startswith(f"{_base(SEEDS[s], m)} size:"):
+                repos.add(h["repo"])
     return have
 
 
@@ -132,10 +143,12 @@ def run(ctx: Ctx, opts: Opts) -> RunStats:
     have = _repos_by_seed(ctx)
     target = math.ceil(opts.limit / len(SEEDS)) if opts.limit is not None else None
     total = RunStats("s1")
-    for seed, q in SEEDS.items():
-        rng = random.Random(f"{VERSION}:{seed}")
-        nodes = walk(f"{q} {FORK}", count, rng, FLOOR_SPLITS[seed])
-        while target is None or len(have[seed]) < target:
+    modes = ["nonfork"] if opts.limit is not None else list(FORK_MODES)
+    for seed, mode in ((s, m) for s in SEEDS for m in modes):
+        family = (seed, mode)
+        rng = random.Random(f"{VERSION}:{seed}:{mode}")
+        nodes = walk(_base(SEEDS[seed], mode), count, rng, FLOOR_SPLITS[seed])
+        while target is None or len(have[family]) < target:
             node = next(nodes, None)  # pulling a node issues count requests, so check the target first
             if node is None:
                 break
@@ -148,6 +161,6 @@ def run(ctx: Ctx, opts: Opts) -> RunStats:
 
             unit = Unit(unit_key("s1", VERSION, node.query, node.kind), (seed, node))
             merge_stats(total, run_batched(ctx, "s1", [unit], work, batch_size=1, log=lambda m: None))
-            have[seed].update(got)
-        print(f"s1 {seed}: {len(have[seed])} repos; search {client.stats}; incomplete counts {incomplete}", flush=True)
+            have[family].update(got)
+        print(f"s1 {seed} [{mode}]: {len(have[family])} repos; search {client.stats}; incomplete counts {incomplete}", flush=True)
     return total

@@ -46,18 +46,22 @@ def test_walk_order_is_seeded():
 class FakeSearch:
     SIZES = {10: 600, 2000: 800, 90000: 300}
 
+    queries: list[str] = []
+
     def __init__(self, token, cache_path):
         self.stats = {"http_requests": 0}
 
     def search(self, q, page=1, per_page=100):
         self.stats["http_requests"] += 1
+        self.queries.append(q)
         m = re.search(r"size:(\d+)\.\.(\d+)", q)
         sizes = [s for s in self.SIZES if int(m[1]) <= s <= int(m[2])]
         total = sum(self.SIZES[s] for s in sizes)
         if per_page == 1:
             return {"total_count": total, "incomplete_results": False, "items": []}
-        tag = re.sub(r"\W", "_", q.split()[0])
-        items = [{"repo": f"o/{tag}-{s}-{i}", "fork": False, "path": "CLAUDE.md", "sha": f"{s}x{i}"}
+        fork = "fork:only" in q  # measured: fork:only (and fork:true) return forks only
+        tag = re.sub(r"\W", "_", q.split()[0]) + ("-fork" if fork else "")
+        items = [{"repo": f"o/{tag}-{s}-{i}", "fork": fork, "path": "CLAUDE.md", "sha": f"{s}x{i}"}
                  for s in sizes for i in range(self.SIZES[s])]
         return {"total_count": total, "incomplete_results": False, "items": items[(page - 1) * 100: page * 100]}
 
@@ -71,6 +75,7 @@ def test_slice_mode_stops_at_one_leaf_per_seed_and_resumes(ctx, monkeypatch):
     per_seed = {}
     for h in hits:
         per_seed.setdefault(h["query_id"].split(" size:")[0], set()).add(h["repo"])
+    assert set(per_seed) == set(s1.SEEDS.values())  # slice mode walks the nonfork families only
     assert len(per_seed) == 4
     assert all(len(v) in (300, 600, 800) for v in per_seed.values())
     assert all(h["component"] == "claude_md" for h in hits)
@@ -81,7 +86,22 @@ def test_full_mode_enumerates_every_leaf(ctx, monkeypatch):
     monkeypatch.setattr(s1, "SearchClient", FakeSearch)
     monkeypatch.setattr(s1, "github_token", lambda: "t")
     s1.run(ctx, Opts())
-    assert len({h["repo"] for h in ctx.tables.read("repo_hits")}) == 4 * 1700
+    hits = ctx.tables.read("repo_hits")
+    assert len({h["repo"] for h in hits if not h["is_fork"]}) == 4 * 1700
+    assert len({h["repo"] for h in hits if h["is_fork"]}) == 4 * 1700
+    assert all(h["is_fork"] == ("fork:only" in h["query_id"]) for h in hits)
+
+
+def test_full_mode_walks_fork_families_and_slice_mode_does_not(ctx, monkeypatch):
+    monkeypatch.setattr(s1, "SearchClient", FakeSearch)
+    monkeypatch.setattr(s1, "github_token", lambda: "t")
+    FakeSearch.queries = []
+    s1.run(ctx, Opts(limit=4))
+    assert FakeSearch.queries and not any("fork" in q for q in FakeSearch.queries)
+    FakeSearch.queries = []
+    s1.run(ctx, Opts())
+    assert any("fork:only" in q for q in FakeSearch.queries)
+    assert not any("fork:true" in q for q in FakeSearch.queries)
 
 
 def test_fixture_mode_emits_hits_for_every_parsed_harness_file(fctx):
