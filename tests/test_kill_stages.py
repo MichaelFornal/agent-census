@@ -23,7 +23,7 @@ def github():
 
 def env_for(data, github, token):
     return {**os.environ, "CENSUS_DATA": str(data), "GITHUB_API_URL": github.url, "GITHUB_TOKEN": token,
-            "CENSUS_PACE": "0", "CENSUS_SUPERVISE_MIN_S": "0.1"}
+            "CENSUS_PACE": "0", "CENSUS_RETRY_GAP_S": "0", "CENSUS_SUPERVISE_MIN_S": "0.1"}
 
 
 def supervise(stage, env, timeout=300):

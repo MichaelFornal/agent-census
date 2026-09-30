@@ -1,4 +1,5 @@
 """Per-stage completion journal (PRD §4): one JSONL line per committed batch of units."""
+import calendar
 import hashlib
 import json
 import time
@@ -48,6 +49,15 @@ class Attempts:
         for e in read_jsonl(self.path):
             if "unit" in e:
                 out[e["unit"]] = out.get(e["unit"], 0) + 1
+        return out
+
+    def last(self) -> dict[str, float]:
+        """Unit -> epoch seconds of its most recent failed attempt."""
+        out: dict[str, float] = {}
+        for e in read_jsonl(self.path):
+            if "unit" in e:
+                at = calendar.timegm(time.strptime(e["at"], "%Y-%m-%dT%H:%M:%SZ"))
+                out[e["unit"]] = max(out.get(e["unit"], 0.0), float(at))
         return out
 
     def record(self, unit: str, error: str) -> None:

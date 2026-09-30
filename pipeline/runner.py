@@ -10,6 +10,7 @@ journaled with a terminal reason only after MAX_ATTEMPTS failures.
 import fcntl
 import json
 import os
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -18,6 +19,7 @@ from pipeline.journal import part_name, unit_key
 from pipeline.store import atomic_write
 
 MAX_ATTEMPTS = 5
+RETRY_GAP_S = 3600.0  # a failed unit is not tried again sooner; quick reruns must not burn all its attempts
 
 STAGE_TABLES: dict[str, list[str]] = {
     "s1": ["repo_hits", "s1_overflows"],
@@ -122,6 +124,8 @@ class StageSession:
         _clean_orphans(ctx, stage)
         self.done: set[str] = ctx.journal(stage).done_units()
         self.attempts: dict[str, int] = ctx.attempts(stage).counts()
+        self.last_attempt: dict[str, float] = ctx.attempts(stage).last()
+        self.retry_gap = float(os.environ.get("CENSUS_RETRY_GAP_S", RETRY_GAP_S))
 
     def commit(self, keys: list[str], out: Rows, stats: RunStats) -> None:
         _commit(self.ctx, self.stage, keys, out, stats)
@@ -130,6 +134,7 @@ class StageSession:
     def failed(self, key: str, error: str) -> int:
         self.ctx.attempts(self.stage).record(key, error)
         self.attempts[key] = self.attempts.get(key, 0) + 1
+        self.last_attempt[key] = time.time()
         return self.attempts[key]
 
 
@@ -159,18 +164,22 @@ def _settle(session: StageSession, batch: list[Unit], rows: Rows, failed: dict[s
 def run_batched(ctx, stage: str, units: list[Unit], work: Callable[[list[Unit]], Rows | Partial], batch_size: int,
                 limit: int | None = None, log: Callable[[str], None] = print,
                 give_up: Callable[[Unit, str], Rows] | None = None,
-                session: StageSession | None = None) -> RunStats:
+                session: StageSession | None = None, now: Callable[[], float] = time.time) -> RunStats:
     session = session or StageSession(ctx, stage)
     if limit is not None:
         units = units[:limit]  # a stable prefix: rerunning with the same limit resumes the same slice
     done = session.done
     all_keys = {u.key for u in units}
-    todo, seen = [], set()
+    todo, seen, waiting = [], set(), 0
+    t = now()
     for u in units:
         if u.key not in done and u.key not in seen:
             seen.add(u.key)
-            todo.append(u)
-    stats = RunStats(stage, units_total=len(all_keys), units_skipped=len(all_keys & done))
+            if t - session.last_attempt.get(u.key, -session.retry_gap) < session.retry_gap:
+                waiting += 1  # failed too recently: leave its attempts for a later run
+            else:
+                todo.append(u)
+    stats = RunStats(stage, units_total=len(all_keys), units_skipped=len(all_keys & done), units_deferred=waiting)
     for i in range(0, len(todo), batch_size):
         batch = todo[i:i + batch_size]
         try:

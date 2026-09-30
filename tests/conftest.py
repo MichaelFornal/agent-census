@@ -23,6 +23,7 @@ def clock() -> FakeClock:
 def isolated_data(tmp_path, monkeypatch):
     d = tmp_path / "data"
     monkeypatch.setenv("CENSUS_DATA", str(d))
+    monkeypatch.setenv("CENSUS_RETRY_GAP_S", "0")  # tests rerun at once; the gap has its own test
     return d
 
 

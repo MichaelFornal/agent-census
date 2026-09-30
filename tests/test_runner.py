@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import time
 
 import pytest
 
@@ -152,6 +153,35 @@ def test_deferred_unit_is_not_journaled_and_runs_again(ctx):
     again = run_batched(ctx, "s1", units(4), hits, batch_size=2, log=quiet, give_up=lost)
     assert (again.units_run, again.units_skipped, again.stopped) == (1, 3, None)
     assert sorted(r["repo"] for r in ctx.tables.read("repo_hits")) == [f"o/r{i}" for i in range(4)]
+
+
+def test_failed_unit_waits_out_the_retry_gap(ctx, monkeypatch):
+    monkeypatch.setenv("CENSUS_RETRY_GAP_S", "3600")
+    t0 = time.time()
+    first = run_batched(ctx, "s1", units(2), flaky({"k1"}), batch_size=2, log=quiet, give_up=lost, now=lambda: t0)
+    assert (first.units_run, first.units_deferred) == (1, 1)
+    seen = []
+
+    def work(batch):
+        seen.append([u.key for u in batch])
+        return hits(batch)
+
+    soon = run_batched(ctx, "s1", units(2), work, batch_size=2, log=quiet, give_up=lost, now=lambda: t0 + 60)
+    assert seen == [] and (soon.units_run, soon.units_deferred) == (0, 1)
+    assert soon.stopped == "1 units deferred after transient failures; rerun to retry"
+    assert ctx.attempts("s1").counts() == {"k1": 1}  # a deferred unit is not an attempt
+    later = run_batched(ctx, "s1", units(2), work, batch_size=2, log=quiet, give_up=lost, now=lambda: t0 + 3601)
+    assert seen == [["k1"]] and (later.units_run, later.units_deferred, later.stopped) == (1, 0, None)
+
+
+def test_attempts_last_reports_the_newest_attempt_time(tmp_path):
+    from pipeline.journal import Attempts
+
+    path = tmp_path / "a.jsonl"
+    path.write_text('{"unit": "a", "error": "x", "at": "2026-01-01T00:00:00Z"}\n'
+                    '{"unit": "a", "error": "x", "at": "2026-01-01T01:00:00Z"}\n'
+                    '{"unit": "b", "error": "x", "at": "2026-01-01T00:30:00Z"}\n')
+    assert Attempts(path).last() == {"a": 1767229200.0, "b": 1767227400.0}
 
 
 def test_unit_is_given_up_after_max_attempts(ctx):
