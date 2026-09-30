@@ -92,4 +92,6 @@ def test_reredact_reports_how_many_blobs_it_rewrote(fctx, capsys):
 
     run_until(fctx, "s2")
     assert cli.main(["reredact", "--edition", "test"]) == 0
-    assert "re-redacted 0 of" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "re-redacted 0 of" in out
+    assert int(out.split(" of ")[1].split()[0]) > 0

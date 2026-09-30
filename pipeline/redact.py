@@ -14,6 +14,7 @@ from collections.abc import Callable
 REDACT_VERSION = 1  # bump when RULES, a gate or the placeholder format changes; tests/test_redact.py pins the rules
 
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z_.]*(\([^)]*\))?")
+PLACEHOLDER = re.compile(r"\[REDACTED:[a-z_]+\]")
 ENV_REF = re.compile(r"process\.env|os\.environ|getenv|ENV\[", re.I)
 
 
@@ -62,7 +63,8 @@ RULES: list[tuple[str, re.Pattern[str], Gate]] = [
 def rules_fingerprint() -> str:
     """Changes whenever a rule, a gate or a gate's helper changes, so a test can demand a version bump."""
     spec = [[name, rx.pattern, rx.flags, inspect.getsource(gate) if gate else None] for name, rx, gate in RULES]
-    helpers = [IDENTIFIER.pattern, ENV_REF.pattern, ENV_REF.flags, inspect.getsource(_entropy)]
+    helpers = [IDENTIFIER.pattern, IDENTIFIER.flags, ENV_REF.pattern, ENV_REF.flags, PLACEHOLDER.pattern,
+               inspect.getsource(_entropy), inspect.getsource(redact)]
     return hashlib.sha256(json.dumps([spec, helpers]).encode()).hexdigest()[:16]
 
 
@@ -75,7 +77,7 @@ def redact(text: str) -> tuple[str, dict[str, int]]:
             pre, post = g.get("pre") or "", g.get("post") or ""
             whole = m.group(0)
             secret = whole[len(pre):len(whole) - len(post)]
-            if secret.startswith("[REDACTED:"):
+            if PLACEHOLDER.fullmatch(secret):
                 return whole
             if gate is not None and not gate(secret):
                 return whole

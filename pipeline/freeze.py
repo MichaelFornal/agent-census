@@ -29,7 +29,7 @@ def edition_hash(ctx: Ctx, with_redact_version: bool = True) -> tuple[str, dict]
 
 
 def stale_blobs(ctx: Ctx) -> int:
-    return sum(1 for oid in fetched_blobs(ctx) if ctx.blobs.version(oid) != REDACT_VERSION)
+    return sum(1 for oid in fetched_blobs(ctx) if ctx.blobs.version(oid) < REDACT_VERSION)
 
 
 def reredact(ctx: Ctx) -> tuple[int, int]:
@@ -100,6 +100,11 @@ def freeze(ctx: Ctx) -> dict:
                          f"so parsed artifacts may hold text the current rules remove. Run "
                          f"`census reredact --edition {ctx.edition}`, then `census run s3 --reset` and every "
                          f"stage after it")
+    from pipeline.s3_parse import units as s3_units  # lazy: s3_parse must not be a freeze import cycle
+    pending = {u.key for u in s3_units(ctx)[0]} - ctx.journal("s3").done_units()
+    if pending:
+        raise SystemExit(f"freeze refused: S3 has not parsed {len(pending)} artifacts under the current inputs and "
+                         f"redaction v{REDACT_VERSION}. Run `census run s3 --reset` and every stage after it")
     digest, body = edition_hash(ctx)
     manifest = {"edition": ctx.edition, "edition_hash": digest, "frozen_at": time.strftime("%Y-%m-%d", time.gmtime()),
                 "redact_version": REDACT_VERSION, **body}

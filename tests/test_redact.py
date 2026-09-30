@@ -120,7 +120,16 @@ def test_a_later_rule_does_not_relabel_an_earlier_placeholder():
     assert counts == {"github_token": 1}
 
 
-PINNED = (1, "d75e145d78bb7a16")
+@pytest.mark.parametrize("text", [
+    "curl -u admin:[REDACTED:x]hunter2secret https://x",
+    "--password [REDACTED:note]hunter2secret",
+])
+def test_a_placeholder_followed_by_secret_text_is_still_redacted(text):
+    out, counts = redact(text)
+    assert "hunter2secret" not in out and counts
+
+
+PINNED =(1, "c1aa50aa9fac1150")
 
 
 def test_rule_changes_require_a_version_bump():

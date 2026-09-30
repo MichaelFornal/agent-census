@@ -7,6 +7,7 @@ from helpers import FIXTURES, run_until
 from pipeline.cli import run_stage
 from pipeline.context import Opts, make_ctx
 from pipeline.freeze import edition_hash, freeze, reredact
+from pipeline.runner import reset
 
 
 def copied_ctx(tmp_path):
@@ -52,12 +53,17 @@ def test_manifest_records_the_redaction_version(tmp_path):
 def test_freeze_refuses_blobs_redacted_under_older_rules_until_reredact(tmp_path, monkeypatch):
     _, ctx = copied_ctx(tmp_path)
     run_until(ctx, "s7")
-    for mod in ("pipeline.store", "pipeline.freeze"):
+    for mod in ("pipeline.store", "pipeline.freeze", "pipeline.s3_parse"):
         monkeypatch.setattr(f"{mod}.REDACT_VERSION", 2)
     with pytest.raises(SystemExit, match=r"census reredact.*s3 --reset"):
         freeze(ctx)
     changed, total = reredact(ctx)
     assert changed == total > 0 and reredact(ctx) == (0, total)
+    with pytest.raises(SystemExit, match="s3 --reset"):  # artifacts were still parsed under v1
+        freeze(ctx)
+    reset(ctx, "s3")
+    for stage in ("s3", "s4", "s5", "s6", "s7"):
+        run_stage(stage, ctx, Opts())
     assert freeze(ctx)["redact_version"] == 2
 
 
