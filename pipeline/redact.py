@@ -55,7 +55,7 @@ RULES: list[tuple[str, re.Pattern[str], Gate]] = [
     ("curl_user_password", re.compile(r'(?P<pre>\s-u\s+[^\s:"]+:)[^\s"@)]{4,}'), None),
     ("mysql_password", re.compile(r'(?P<pre>\bmysql\b[^"\n)]*?\s-p)[^\s"\')]{4,}'), None),
     ("assigned_secret", re.compile(
-        r'(?i)(?P<pre>"?[A-Za-z0-9_-]*(?:API_KEY|APIKEY|API-KEY|SECRET|TOKEN|PASSWORD|PASSWD|_KEY)[A-Za-z0-9_-]*"?'
+        r'(?i)(?P<pre>(?<![A-Za-z0-9_-])"?[A-Za-z0-9_-]*(?:API_KEY|APIKEY|API-KEY|SECRET|TOKEN|PASSWORD|PASSWD|_KEY)[A-Za-z0-9_-]*"?'
         r'\s*[:=]\s*"?)[^"\s,{}$\[]{8,}'), looks_secret),
 ]
 

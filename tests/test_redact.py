@@ -1,4 +1,5 @@
 import json
+import time
 
 import pytest
 
@@ -129,7 +130,65 @@ def test_a_placeholder_followed_by_secret_text_is_still_redacted(text):
     assert "hunter2secret" not in out and counts
 
 
-PINNED =(1, "c1aa50aa9fac1150")
+@pytest.mark.parametrize("text", ["a" * 20000, "A1b2" * 5000, "a-b_" * 5000], ids=["a", "A1b2", "a-b_"])
+def test_a_long_identifier_run_is_not_quadratic(text):
+    start = time.perf_counter()
+    assert redact(text) == (text, {})
+    assert time.perf_counter() - start < 2.0
+
+
+# Outputs computed with the rules as they were before the identifier run of assigned_secret was anchored.
+SAMPLE_OUTPUTS = [
+    ("token [REDACTED:github_token]", {"github_token": 1}),
+    ("curl -u admin:[REDACTED:curl_user_password] https://x.example/api", {"curl_user_password": 1}),
+    ("postgres://app:[REDACTED:url_credentials]@db.internal:5432/app", {"url_credentials": 1}),
+    ('claude --api-key "[REDACTED:anthropic_key]"', {"anthropic_key": 1}),
+    ("mysql -u root -p[REDACTED:mysql_password] app", {"mysql_password": 1}),
+    ("Authorization: Bearer [REDACTED:bearer]", {"bearer": 1}),
+    ('{"env": {"CLOUD_API_KEY": "[REDACTED:assigned_secret]"}}', {"assigned_secret": 1}),
+    ("curl -u admin:[REDACTED:github_token] https://x.example", {"github_token": 1}),
+]
+EQUALITY_CASES = [
+    (json.dumps({"permissions": {"allow": [f"Bash(GH_TOKEN={GHP} gh pr list)"]}}),
+     '{"permissions": {"allow": ["Bash(GH_TOKEN=[REDACTED:github_token] gh pr list)"]}}', {"github_token": 1}),
+    (json.dumps({"mcpServers": {"brave": {"env": {"BRAVE_API_KEY": "BSAabc123def456ghi",
+                                                  "GITHUB_TOKEN": "${GITHUB_TOKEN}"}}}}),
+     '{"mcpServers": {"brave": {"env": {"BRAVE_API_KEY": "[REDACTED:assigned_secret]", '
+     '"GITHUB_TOKEN": "${GITHUB_TOKEN}"}}}}', {"assigned_secret": 1}),
+    ("export ANTHROPIC=sk-ant-api03-" + "x" * 40, "export ANTHROPIC=[REDACTED:anthropic_key]", {"anthropic_key": 1}),
+    ("AKIAABCDEFGHIJKLMNOP\ncurl -H \"Authorization: Bearer abcdefghijklmnopqrstuvwxyz0123\"\n"
+     "-----BEGIN RSA PRIVATE KEY-----\nMIIEow\n-----END RSA PRIVATE KEY-----\n",
+     '[REDACTED:aws_access_key]\ncurl -H "Authorization: Bearer [REDACTED:bearer]"\n[REDACTED:private_key]\n',
+     {"private_key": 1, "aws_access_key": 1, "bearer": 1}),
+    ('{"apiKey": "abcd1234efgh5678", "X-API-Key": "zyxw9876vuts5432", "STRIPE_KEY": "qwer1234asdf5678"}',
+     '{"apiKey": "[REDACTED:assigned_secret]", "X-API-Key": "[REDACTED:assigned_secret]", '
+     '"STRIPE_KEY": "[REDACTED:assigned_secret]"}', {"assigned_secret": 3}),
+    ('"Bash(curl -u admin:hunter2secret https://x.io)", "Bash(mysql -pS3cretPass99 db)", '
+     '["--api-key", "k-9f8e7d6c5b4a"], "Bash(tool --token=tok_55aa66bb77cc)"',
+     '"Bash(curl -u admin:[REDACTED:curl_user_password] https://x.io)", "Bash(mysql -p[REDACTED:mysql_password] db)", '
+     '["--api-key", "[REDACTED:cli_flag_secret]"], "Bash(tool --token=[REDACTED:cli_flag_secret])"',
+     {"cli_flag_secret": 2, "curl_user_password": 1, "mysql_password": 1}),
+    ("tokens = count_tokens(text)\nAPI_KEY = process.env.API_KEY\nmax_tokens = 4096\n",
+     "tokens = count_tokens(text)\nAPI_KEY = process.env.API_KEY\nmax_tokens = 4096\n", {}),
+    ('export OPENAI_API_KEY="a8f3Kq92Lm0Zx7Rt"', 'export OPENAI_API_KEY="[REDACTED:assigned_secret]"',
+     {"assigned_secret": 1}),
+    ("curl -u admin:[REDACTED:x]hunter2secret https://x", "curl -u admin:[REDACTED:curl_user_password] https://x",
+     {"curl_user_password": 1}),
+    ('abc"TOKEN": "Zq8Xv2Lm9Pw4Rt7Ky3Nb" and foo.SECRET=Ab3dE5gH7jK9 and x-my_password: Zq8Xv2Lm9Pw4Rt7Ky3Nb',
+     'abc"TOKEN": "[REDACTED:assigned_secret]" and foo.SECRET=[REDACTED:assigned_secret] '
+     "and x-my_password: [REDACTED:assigned_secret]", {"assigned_secret": 3}),
+    ("prefix" * 30 + "_API_KEY=Zq8Xv2Lm9Pw4Rt7Ky3Nb\n_KEY: 'Zq8Xv2Lm9Pw4Rt7Ky3Nb'\nDB_PASSWORD=Zq8Xv2Lm9Pw4Rt7Ky3Nb",
+     "prefix" * 30 + "_API_KEY=[REDACTED:assigned_secret]\n_KEY: [REDACTED:assigned_secret]\n"
+     "DB_PASSWORD=[REDACTED:assigned_secret]", {"assigned_secret": 3}),
+]
+
+
+@pytest.mark.parametrize("text, out, counts", [(t, *e) for t, e in zip(SAMPLES, SAMPLE_OUTPUTS)] + EQUALITY_CASES)
+def test_redact_output_equals_the_snapshot_from_before_the_anchoring(text, out, counts):
+    assert redact(text) == (out, counts)
+
+
+PINNED = (1, "ecfad3866b9a20a6")
 
 
 def test_rule_changes_require_a_version_bump():
