@@ -16,7 +16,10 @@ def atomic_write(path: Path, data: bytes) -> None:
     """Write via a temp file and rename, so a kill leaves either the old file or the new one."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    tmp.write_bytes(data)
+    with tmp.open("wb") as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())  # the rename must not outlive the bytes in a power loss
     os.replace(tmp, path)
 
 
@@ -46,7 +49,7 @@ class BlobStore:
 
     def _write(self, oid: str, text: str, counts: dict[str, int]) -> None:
         head = HEADER + json.dumps({"v": REDACT_VERSION, "counts": counts}, sort_keys=True) + "\n"
-        atomic_write(self.path(oid), zstandard.ZstdCompressor(level=10).compress((head + text).encode()))
+        atomic_write(self.path(oid), zstandard.ZstdCompressor(level=10).compress((head + text).encode(errors="replace")))
 
     def _read(self, oid: str) -> tuple[int, dict[str, int], str]:
         raw = zstandard.ZstdDecompressor().decompress(self.path(oid).read_bytes()).decode()

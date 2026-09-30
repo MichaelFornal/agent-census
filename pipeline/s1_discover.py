@@ -148,6 +148,8 @@ def run(ctx: Ctx, opts: Opts) -> RunStats:
     state = read_state(ctx, "s1") if full else {}
     if state.get("config") != _walk_config():
         state = {"config": _walk_config(), "families_done": [], "complete": False}
+        if full:
+            write_state(ctx, "s1", state)  # at once: S2 must not read a stale complete: true while this walk runs
     have = {} if full else _repos_by_seed(ctx)  # slice mode only: the full table does not fit in memory
     target = None if full else math.ceil(opts.limit / len(SEEDS))
     total = RunStats("s1")
@@ -173,7 +175,8 @@ def run(ctx: Ctx, opts: Opts) -> RunStats:
 
                 def work(batch: list[Unit], got: list[str] = got) -> dict[str, list[dict]]:
                     out = node_work(client, batch)
-                    got.extend(r["repo"] for r in out["repo_hits"])
+                    if not full:  # only slice mode counts repos toward its target
+                        got.extend(r["repo"] for r in out["repo_hits"])
                     return out
 
                 merge_stats(total, run_batched(ctx, "s1", [Unit(key, (seed, node))], work, batch_size=1,

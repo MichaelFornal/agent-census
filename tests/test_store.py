@@ -115,3 +115,23 @@ def test_write_part_rejects_wrong_types(tmp_path):
 def test_connect_exposes_every_table(tmp_path):
     con = Tables(tmp_path).connect()
     assert con.execute("SELECT count(*) FROM artifacts").fetchone() == (0,)
+
+
+def test_a_lone_surrogate_from_a_json_escape_does_not_crash_a_put(tmp_path):
+    store = BlobStore(tmp_path / "blobs")
+    oid = "ab" * 20
+    store.put(oid, "a\ud800b")
+    assert store.get(oid) == "a?b"
+
+
+def test_atomic_write_syncs_the_file_before_the_rename(tmp_path, monkeypatch):
+    import os
+
+    from pipeline.store import atomic_write
+
+    events = []
+    monkeypatch.setattr(os, "fsync", lambda fd: events.append("fsync"))
+    real_replace = os.replace
+    monkeypatch.setattr(os, "replace", lambda a, b: events.append("replace") or real_replace(a, b))
+    atomic_write(tmp_path / "x.bin", b"data")
+    assert events == ["fsync", "replace"] and (tmp_path / "x.bin").read_bytes() == b"data"

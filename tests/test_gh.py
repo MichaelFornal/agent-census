@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import httpx
 import pytest
 
@@ -246,3 +248,19 @@ def test_census_pace_zero_disables_sleeping(monkeypatch, clock):
     p.wait()
     p.on_rate_limit(0.0)
     assert sum(clock.sleeps) == 0.0
+
+
+def test_a_scaled_pace_is_announced_once_per_process(monkeypatch, capsys):
+    from pipeline import gh
+
+    monkeypatch.setattr(gh, "_pace_announced", False)
+    monkeypatch.setenv("CENSUS_PACE", "0.25")
+    SearchClient("t", Path("/nonexistent/c.jsonl"))
+    GraphQLClient("t")
+    RestClient("t")
+    err = capsys.readouterr().err.strip().splitlines()
+    assert len(err) == 1 and "CENSUS_PACE=0.25" in err[0]
+    monkeypatch.setattr(gh, "_pace_announced", False)
+    monkeypatch.setenv("CENSUS_PACE", "1")
+    RestClient("t")
+    assert capsys.readouterr().err == ""

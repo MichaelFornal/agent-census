@@ -221,6 +221,26 @@ class Crash(Exception):
     pass
 
 
+def test_changed_walk_config_clears_a_stale_complete_at_once(ctx, monkeypatch):
+    fake_github(monkeypatch)
+    s1.run(ctx, Opts())
+    assert read_state(ctx, "s1")["complete"]
+    monkeypatch.setitem(s1.FLOOR_SPLITS, "mcp", ["path:/", "extension:json"])
+    real, calls = FakeSearch.search, []
+
+    def dying(self, q, page=1, per_page=100):
+        calls.append(q)
+        if len(calls) == 5:
+            raise Crash()
+        return real(self, q, page, per_page)
+
+    monkeypatch.setattr(FakeSearch, "search", dying)
+    with pytest.raises(Crash):
+        s1.run(ctx, Opts())
+    state = read_state(ctx, "s1")
+    assert state["complete"] is False and state["families_done"] == []
+
+
 def test_crash_mid_walk_resumes_without_loss_or_duplicates(ctx, monkeypatch):
     fake_github(monkeypatch)
     clean = make_ctx("clean")

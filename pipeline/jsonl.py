@@ -78,3 +78,5 @@ def append_jsonl(path: Path, rec: dict[str, Any]) -> None:
     # Append the new record
     with path.open("a") as f:
         f.write(json.dumps(rec, sort_keys=True) + "\n")
+        f.flush()
+        os.fsync(f.fileno())

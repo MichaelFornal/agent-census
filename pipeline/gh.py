@@ -1,6 +1,7 @@
 """GitHub clients: paced, cached code search and GraphQL (PRD §4 S1, S2)."""
 import os
 import subprocess
+import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -22,6 +23,17 @@ def _pace() -> float:
     return float(os.environ.get("CENSUS_PACE", "1"))
 
 SECONDARY_FLOOR_S = 60.0
+_pace_announced = False
+
+
+def _announce_pace() -> None:
+    """A scaled CENSUS_PACE breaks GitHub's request spacing; say so once, not once per client."""
+    global _pace_announced
+    scale = _pace()
+    if scale != 1 and not _pace_announced:
+        _pace_announced = True
+        print(f"census: CENSUS_PACE={scale:g}: every request wait is scaled by {scale:g} "
+              "(1 is GitHub's real pacing)", file=sys.stderr, flush=True)
 
 
 def github_token() -> str:
@@ -100,6 +112,7 @@ class SearchClient:
     def __init__(self, token: str, cache_path: Path, pacer: Pacer | None = None,
                  transport: httpx.BaseTransport | None = None, max_attempts: int = 10,
                  wall: Callable[[], float] = time.time) -> None:
+        _announce_pace()
         self.http = httpx.Client(base_url=api_base(), headers=_headers(token), timeout=60.0, transport=transport)
         self.pacer = pacer or Pacer()
         self.wall = wall
@@ -163,6 +176,7 @@ class SearchClient:
 class GraphQLClient:
     def __init__(self, token: str, transport: httpx.BaseTransport | None = None, timeout: float = 60.0,
                  pacer: Pacer | None = None, max_attempts: int = 6, wall: Callable[[], float] = time.time) -> None:
+        _announce_pace()
         self.http = httpx.Client(base_url=api_base(), headers=_headers(token), timeout=timeout, transport=transport)
         self.pacer = pacer or Pacer(base_interval=1.0)
         self.max_attempts = max_attempts
@@ -223,6 +237,7 @@ class RestClient:
 
     def __init__(self, token: str, transport: httpx.BaseTransport | None = None, pacer: Pacer | None = None,
                  max_attempts: int = 4, wall: Callable[[], float] = time.time) -> None:
+        _announce_pace()
         self.http = httpx.Client(base_url=api_base(), headers=_headers(token), timeout=60.0, transport=transport)
         self.pacer = pacer or Pacer(base_interval=0.75)
         self.max_attempts = max_attempts

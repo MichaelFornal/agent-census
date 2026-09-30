@@ -51,3 +51,12 @@ def test_append_after_partial_line_discards_it(tmp_path):
     p.write_text('{"a"')
     append_jsonl(p, {"a": 3})
     assert p.read_text() == '{"a": 3}\n'
+
+
+def test_append_jsonl_syncs_the_file(tmp_path, monkeypatch):
+    import os
+
+    synced = []
+    monkeypatch.setattr(os, "fsync", lambda fd: synced.append(fd))
+    append_jsonl(tmp_path / "x.jsonl", {"a": 1})
+    assert len(synced) == 1 and read_jsonl(tmp_path / "x.jsonl") == [{"a": 1}]
