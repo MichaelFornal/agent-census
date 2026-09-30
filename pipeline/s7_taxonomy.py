@@ -101,7 +101,9 @@ def taxonomy(ctx: Ctx, sem: list[dict]) -> dict[str, list[dict]]:
 
 
 def run(ctx: Ctx, opts: Opts) -> RunStats:
-    sem = sorted((s for s in ctx.tables.read("semantics") if s["pass_id"] == "a"), key=lambda s: s["cluster_id"])
+    live = {c["cluster_id"] for c in ctx.tables.read("clusters")}  # the filter v_semantics applies
+    sem = sorted((s for s in ctx.tables.read("semantics") if s["pass_id"] == "a" and s["cluster_id"] in live),
+                 key=lambda s: s["cluster_id"])
     fp = unit_key(VERSION, ctx.embedder, ctx.llm,
                   [(t.id, t.label, t.definition) for t in TECHNIQUES.values()],
                   (LABEL_MODEL, LABEL_SYSTEM, LABEL_SAMPLE, CANDIDATE_SIM, UNCHARTED_MAX_SIZE, UNCHARTED_LIMIT),

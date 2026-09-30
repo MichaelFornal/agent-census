@@ -34,6 +34,18 @@ def test_s7_on_fixtures(fctx):
     assert s7.run(fctx, Opts()).units_skipped == 1
 
 
+def test_s7_ignores_semantics_for_clusters_that_no_longer_exist(fctx):
+    from pipeline.runner import reset
+    run_until(fctx, "s7")
+    fctx.tables.write_part("semantics", "p-stale", [{
+        "cluster_id": "cl-gone", "pass_id": "a", "artifact_id": "x", "use_case": "Uses Claude to haunt.",
+        "domain_guess": "x", "non_coding": False, "techniques_json": "[]", "notable": None}])
+    reset(fctx, "s7")
+    s7.run(fctx, Opts())
+    assert "cl-gone" not in {m["cluster_id"] for m in fctx.tables.read("uc_membership")}
+    assert "cl-gone" not in {u["cluster_id"] for u in fctx.tables.read("uncharted")}
+
+
 def test_empty_semantics_yields_empty_taxonomy(fctx):
     assert s7.taxonomy(fctx, []) == {"use_cases": [], "uc_membership": [], "technique_candidates": [], "uncharted": []}
 
