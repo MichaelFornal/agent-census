@@ -1,0 +1,15 @@
+---
+interface Props { rows: { label: string; share: number }[]; title: string }
+const { rows, title } = Astro.props;
+---
+<figure class="chart" data-rows={JSON.stringify(rows)}>
+  <figcaption>{title}</figcaption>
+</figure>
+<script>
+  import * as Plot from "@observablehq/plot";
+  for (const el of document.querySelectorAll<HTMLElement>("figure.chart")) {
+    const rows = JSON.parse(el.dataset.rows ?? "[]");
+    el.append(Plot.barX(rows, { x: "share", y: "label", sort: { y: "-x" } })
+      .plot({ x: { percent: true, label: "Share of harnesses (%)" }, marginLeft: 160 }));
+  }
+</script>

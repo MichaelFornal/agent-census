@@ -1,0 +1,42 @@
+---
+import Base from "../layouts/Base.astro";
+import Fact from "../components/Fact.astro";
+import BarChart from "../components/BarChart.astro";
+import EvidenceCard from "../components/EvidenceCard.astro";
+import { series } from "../lib/facts";
+import anatomy from "../data/findings/anatomy.json";
+
+const KIND_LABELS: Record<string, string> = {
+  claude_md: "CLAUDE.md", skill: "Skills", agent: "Subagents", command: "Commands", hook: "Hook scripts",
+  settings: "settings.json", settings_local: "settings.local.json", mcp: ".mcp.json",
+  plugin: "Plugin manifest", marketplace: "Marketplace manifest",
+};
+const rows = series<{ kind: string; share: number }>("component_share")
+  .map((r) => ({ label: KIND_LABELS[r.kind] ?? r.kind, share: r.share }));
+type Named = { id: string; label: string };
+const techniques = Object.values(import.meta.glob<{ default: Named }>("../data/techniques/*.json", { eager: true }))
+  .map((m) => m.default);
+const useCases = Object.values(import.meta.glob<{ default: Named }>("../data/use-cases/*.json", { eager: true }))
+  .map((m) => m.default);
+---
+<Base title="Agent Census">
+  <section class="headline">
+    <div><Fact id="harnesses_total" /> harnesses</div>
+    <div><Fact id="distinct_artifacts" /> distinct artifacts</div>
+    <div><Fact id="copy_rate" format="pct" /> of files are copies</div>
+  </section>
+  <section>
+    <h2>Adoption and anatomy</h2>
+    <p>Which parts of the Claude Code harness each repo uses.</p>
+    <BarChart rows={rows} title="Share of harnesses with each component" />
+    {anatomy.evidence.map((card) => <EvidenceCard card={card} />)}
+  </section>
+  <section>
+    <h2>Use cases</h2>
+    <ul>{useCases.map((u) => <li><a href={`/use-cases/${u.id}/`}>{u.label}</a></li>)}</ul>
+  </section>
+  <section>
+    <h2>Techniques</h2>
+    <ul>{techniques.map((t) => <li><a href={`/techniques/${t.id}/`}>{t.label}</a></li>)}</ul>
+  </section>
+</Base>

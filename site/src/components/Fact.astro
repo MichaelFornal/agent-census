@@ -1,0 +1,6 @@
+---
+import { fmt, scalar } from "../lib/facts";
+interface Props { id: string; format?: "int" | "pct" }
+const { id, format = "int" } = Astro.props;
+---
+<span class="fact" data-fact={id}>{fmt(scalar(id), format)}</span>

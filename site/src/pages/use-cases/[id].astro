@@ -1,0 +1,38 @@
+---
+import Base from "../../layouts/Base.astro";
+import EvidenceCard from "../../components/EvidenceCard.astro";
+import { fmt, series } from "../../lib/facts";
+
+interface Card { repo: string | null; path: string; kind: string; permalink: string | null; excerpt: string | null }
+interface UseCase {
+  id: string; label: string; parent_id: string | null; parent_label: string | null; non_coding: boolean;
+  examples: Card[]; skills: string[];
+}
+interface Named { id: string; label: string }
+
+export function getStaticPaths() {
+  const mods = import.meta.glob<{ default: UseCase }>("../../data/use-cases/*.json", { eager: true });
+  return Object.values(mods).map((m) => ({ params: { id: m.default.id }, props: { u: m.default } }));
+}
+
+const { u } = Astro.props as { u: UseCase };
+const size = series<{ use_case_id: string; harnesses: number }>("use_case_sizes").find((r) => r.use_case_id === u.id);
+const techLabels: Record<string, string> = Object.fromEntries(
+  Object.values(import.meta.glob<{ default: Named }>("../../data/techniques/*.json", { eager: true }))
+    .map((m) => [m.default.id, m.default.label]));
+const techs = series<{ use_case_id: string; technique_id: string; harnesses: number }>("use_case_techniques")
+  .filter((r) => r.use_case_id === u.id)
+  .sort((a, b) => b.harnesses - a.harnesses);
+const sizeText = size ? fmt(size.harnesses, "int") : "none in this edition";
+---
+<Base title={u.label}>
+  <h1>{u.label}</h1>
+  {u.parent_label && <p>Part of {u.parent_label}.</p>}
+  {u.non_coding && <p>A non-coding use case.</p>}
+  <p>Harnesses: {sizeText}</p>
+  <h2>Techniques used</h2>
+  <ul>{techs.map((r) => <li><a href={`/techniques/${r.technique_id}/`}>{techLabels[r.technique_id] ?? r.technique_id}</a> ({fmt(r.harnesses, "int")})</li>)}</ul>
+  <h2>Example harnesses</h2>
+  {u.examples.map((card) => <EvidenceCard card={card} />)}
+  {u.skills.length > 0 && <><h2>Representative skills</h2><ul>{u.skills.map((s) => <li>{s}</li>)}</ul></>}
+</Base>

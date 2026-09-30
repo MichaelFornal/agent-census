@@ -1,0 +1,13 @@
+---
+interface Card { repo: string | null; path: string; kind: string; permalink: string | null; excerpt: string | null }
+interface Props { card: Card }
+const { card } = Astro.props;
+---
+<figure class="card">
+  {card.excerpt !== null && <pre><code>{card.excerpt}</code></pre>}
+  <figcaption>
+    {card.permalink
+      ? <a href={card.permalink}>{card.repo} · {card.path}</a>
+      : <span>Anonymized · {card.path}</span>}
+  </figcaption>
+</figure>
