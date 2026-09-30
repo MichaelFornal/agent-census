@@ -56,6 +56,13 @@ def _skill_name(art: dict) -> str:
     return p.parent.name or p.stem
 
 
+def representative_skills(canon: list[dict]) -> list[str]:
+    """Skill names in cluster-size order (canon's order), deduplicated; names with a digit are dropped
+    because page copy may not contain one (PRD §7)."""
+    names = dict.fromkeys(_skill_name(a) for a in canon if a["kind"] == "skill")
+    return [n for n in names if not re.search(r"\d", n)][:SKILLS_PER_USE_CASE]
+
+
 def run(ctx: Ctx, opts: Opts) -> RunStats:
     fp = facts_path(ctx.edition)
     if not fp.exists():
@@ -129,7 +136,7 @@ def _build(ctx: Ctx, out: Path, fp: Path, repos: dict, ucs: dict, approved: dict
             "parent_label": approved.get(u["parent_id"]) if u["parent_id"] else None,
             "non_coding": u["non_coding"],
             "examples": [card(ctx, repos[a["repo"]], a, 1, EXCERPT_MAX, False) for a in canon[:CARDS_PER_PAGE]],
-            "skills": sorted({_skill_name(a) for a in canon if a["kind"] == "skill"})[:SKILLS_PER_USE_CASE],
+            "skills": representative_skills(canon),
         })
 
     kinds: dict[str, set[str]] = {}

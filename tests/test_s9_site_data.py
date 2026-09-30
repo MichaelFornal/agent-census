@@ -66,6 +66,17 @@ def test_only_approved_use_cases_are_written(fctx, monkeypatch):
     assert csv["examples"] and all(c["permalink"] for c in csv["examples"])
 
 
+def test_representative_skills_follow_cluster_size_order_and_drop_digit_names():
+    def skill(name):
+        return {"kind": "skill", "path": f".claude/skills/{name}/SKILL.md", "parsed_json": json.dumps(
+            {"frontmatter": {"name": name}})}
+    canon = [skill("zeta"), skill("v2-tool"), skill("alpha"), skill("zeta"), {**skill("agent-x"), "kind": "agent"},
+             skill("mid")]
+    assert s9.representative_skills(canon) == ["zeta", "alpha", "mid"]  # size order, deduped, no digits, no non-skills
+    many = [skill(f"s{chr(97 + i)}") for i in range(s9.SKILLS_PER_USE_CASE + 3)]
+    assert s9.representative_skills(many) == [f"s{chr(97 + i)}" for i in range(s9.SKILLS_PER_USE_CASE)]
+
+
 def test_anatomy_evidence_is_the_richest_harness(fctx, monkeypatch):
     out = build(fctx, monkeypatch, {})
     [card] = read(out / "findings" / "anatomy.json")["evidence"]
