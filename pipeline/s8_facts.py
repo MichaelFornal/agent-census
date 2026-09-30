@@ -12,11 +12,13 @@ from pathlib import Path
 from typing import Any
 
 import duckdb
+import pyarrow as pa
 
 from pipeline.context import Ctx, Opts
 from pipeline.freeze import edition_hash, load_manifest
 from pipeline.paths import REPO_ROOT, facts_path
 from pipeline.runner import RunStats
+from pipeline.schemas import SCHEMAS
 from pipeline.store import atomic_write
 
 FACTS_DIR = REPO_ROOT / "facts"
@@ -26,12 +28,28 @@ TABLE_REF = re.compile(r"\b(?:from|join)\s+([A-Za-z_]\w*)", re.I)
 
 
 def connect(ctx: Ctx) -> duckdb.DuckDBPyConnection:
-    con = ctx.tables.connect()
+    """A fresh in-memory connection that exposes only the v_* views.
+
+    Base tables are copied into the _base schema, then external access is switched off, so a fact query
+    that names a base table (quoted or not) or a file path fails at execution instead of skipping the canary filter.
+    """
+    con = duckdb.connect()
+    con.execute("CREATE SCHEMA _base")
+    for name, schema in SCHEMAS.items():
+        if ctx.tables.parts(name):
+            con.execute(f"CREATE TABLE _base.{name} AS SELECT * FROM read_parquet('{ctx.tables.dir(name)}/*.parquet')")
+        else:
+            con.register("_empty", pa.Table.from_pylist([], schema=schema))
+            con.execute(f"CREATE TABLE _base.{name} AS SELECT * FROM _empty")
+            con.unregister("_empty")
+    con.execute("SET enable_external_access = false")
     con.execute(VIEWS.read_text())
     return con
 
 
 def check_sql(name: str, sql: str) -> str:
+    if "_base" in sql.lower():
+        raise ValueError(f"{name}: facts may not reference the _base schema")
     m = KIND_RE.search(sql)
     if not m:
         raise ValueError(f"{name}: missing '-- kind: scalar|series' header")
