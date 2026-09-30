@@ -1,4 +1,15 @@
-"""JSONL that survives kill -9: a cut-off last line is skipped, and the next append starts a fresh line."""
+"""JSONL that survives kill -9: discards partial tails and only skips the final incomplete line on read.
+
+read_jsonl: Returns complete records only. Skips a malformed or non-object last line (killed writer's
+partial append). Raises ValueError for any malformed or non-object line elsewhere (PRD §8: no silent
+catches). Line numbers are 1-indexed in error messages.
+
+append_jsonl: Truncates any partial tail (lines after the last complete newline), then appends.
+This ensures resumability: if a kill leaves '{"a":1}\\n{"a":2' (partial), the next append truncates
+to '{"a":1}\\n' and writes the new record, yielding '{"a":1}\\n{"a":3}\\n'. The partial line is
+never committed, so discarding it loses nothing. Combined with read_jsonl's skip-last-line rule,
+this keeps the pipeline resumable after kill -9.
+"""
 import json
 import os
 from pathlib import Path
@@ -44,11 +55,23 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 def append_jsonl(path: Path, rec: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    prefix = ""
+
+    # If the file has a partial tail (doesn't end with \n), truncate it
     if path.exists() and path.stat().st_size > 0:
-        with path.open("rb") as f:
+        with path.open("r+b") as f:
             f.seek(-1, os.SEEK_END)
             if f.read(1) != b"\n":
-                prefix = "\n"
+                # Find the position just after the last \n
+                f.seek(0)
+                content = f.read()
+                last_newline_pos = content.rfind(b"\n")
+                if last_newline_pos >= 0:
+                    # Truncate after the last newline
+                    f.truncate(last_newline_pos + 1)
+                else:
+                    # No newline found; truncate to empty
+                    f.truncate(0)
+
+    # Append the new record
     with path.open("a") as f:
-        f.write(prefix + json.dumps(rec, sort_keys=True) + "\n")
+        f.write(json.dumps(rec, sort_keys=True) + "\n")
