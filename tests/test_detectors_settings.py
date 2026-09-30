@@ -67,3 +67,78 @@ def test_catalog_copy_has_no_digits_and_valid_categories():
     for t in TECHNIQUES.values():
         assert not re.search(r"\d", t.label + t.definition), t.id
         assert t.category in {"hooks", "orchestration", "memory", "skills", "commands", "permissions", "integrations"}
+
+
+import pytest  # noqa: E402
+
+from pipeline.detectors.base import Artifact as _A  # noqa: E402
+from pipeline.detectors.hooks import is_format, is_verify  # noqa: E402
+from pipeline.fixtures import fixture_files  # noqa: E402
+from pipeline.kinds import classify  # noqa: E402
+from pipeline.parsers import parse  # noqa: E402
+from tests.helpers import FIXTURES  # noqa: E402
+
+
+@pytest.mark.parametrize("cmd", ["npm test --silent", "uv run pytest -q", "make lint", "cargo clippy",
+                                 "go vet ./...", "npx tsc --noEmit", "pnpm run typecheck",
+                                 "./node_modules/.bin/eslint .", "CI=1 npm test", "cd app && npm test"])
+def test_is_verify_true(cmd):
+    assert is_verify(cmd)
+
+
+@pytest.mark.parametrize("cmd", ["mkdir -p /var/test", "cd my-test-app", "echo $TEST", "/usr/bin/test -f x",
+                                 "notify-send 'tests passed'", "cat lint-report.txt", "black-box.sh",
+                                 "cat prettier.config.js", "echo 'no tests'", "rm test.log", "cat tests/x",
+                                 "echo done > /tmp/tsc-out"])
+def test_is_verify_false(cmd):
+    assert not is_verify(cmd)
+
+
+@pytest.mark.parametrize("cmd", ['npx prettier --write "$F"', "black .", "ruff format", "npx eslint --fix ."])
+def test_is_format_true(cmd):
+    assert is_format(cmd)
+
+
+@pytest.mark.parametrize("cmd", ["echo black", "black-box.sh", "cat prettier.config.js", "echo ruff format",
+                                 "eslint . && echo --fix"])
+def test_is_format_false(cmd):
+    assert not is_format(cmd)
+
+
+MALFORMED = [("settings", '{"hooks": {"Stop": "x"}}'),
+             ("settings", '{"hooks": {"Stop": [null, 1, {"hooks": "x"}]}}'),
+             ("settings", '{"permissions": [1]}'),
+             ("settings", '{"hooks": ["x"]}'),
+             ("mcp", '{"mcpServers": {"a": 1, "b": {"command": ["x"]}}}')]
+
+
+def _parser_inputs():
+    for f in fixture_files(FIXTURES):
+        kind = classify(f.path)
+        if kind in ("settings", "settings_local", "mcp"):
+            yield kind, f.data.decode(), f.path
+    for kind, text in MALFORMED:
+        yield kind, text, ".mcp.json" if kind == "mcp" else ".claude/settings.json"
+
+
+def test_parser_output_satisfies_detector_shape_contract():
+    seen = 0
+    for kind, text, path in _parser_inputs():
+        parsed, err = parse(kind, text, path, [])
+        if err:  # partial parses carry no shape guarantee; detectors must still survive them
+            pass
+        elif kind == "mcp":
+            assert isinstance(parsed["servers"], list) and all(isinstance(s, dict) for s in parsed["servers"])
+        else:
+            for hk in parsed["hooks"]:
+                assert isinstance(hk, dict) and isinstance(hk["event"], str)
+                assert hk["command"] is None or isinstance(hk["command"], str)
+                assert hk["line"] is None or isinstance(hk["line"], int)
+            p = parsed["permissions"]
+            assert isinstance(p, dict)
+            for k in ("allow", "deny", "ask"):
+                assert isinstance(p[k], list) and all(isinstance(x, str) for x in p[k])
+        h = Harness("o/r", (_A("x", kind, path, parsed, err),))
+        detect_hooks(h), detect_permissions(h), detect_integrations(h)
+        seen += 1
+    assert seen > len(MALFORMED)
