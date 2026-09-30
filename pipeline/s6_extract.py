@@ -4,6 +4,7 @@ call failed (an outage), stops the stage cleanly without journaling that batch.
 """
 import json
 import random
+import secrets
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -45,7 +46,7 @@ def representatives(ctx: Ctx) -> list[dict]:
 def extract_batch(llm, p: Pass, items: list[dict], texts: dict[str, str]) -> dict[str, list[dict]]:
     ids = {f"a{i}": it for i, it in enumerate(items)}
     sources = {k: texts[it["blob_sha"]][:MAX_CHARS] for k, it in ids.items()}
-    res = llm.call(p.model, p.system, build_prompt(list(sources.items())), RECORDS_SCHEMA)
+    res = llm.call(p.model, p.system, build_prompt(list(sources.items()), secrets.token_hex(6)), RECORDS_SCHEMA)
     call = {"call_id": unit_key(p.pass_id, [it["cluster_id"] for it in items], time.time()), "pass_id": p.pass_id,
             "model": p.model, "n_sent": len(items), "n_ok": 0, "error": res.error, "wall_s": res.wall_s,
             "cost_usd": res.cost_usd}

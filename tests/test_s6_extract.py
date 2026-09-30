@@ -25,7 +25,7 @@ def items(n):
 
 def good(prompt):
     recs = []
-    for aid, body in re.findall(r'<artifact id="(a\d+)">\n(.*?)\n</artifact>', prompt, re.S):
+    for _nonce, aid, body in re.findall(r'<artifact-([0-9a-f]+) id="(a\d+)">\n(.*?)\n</artifact-\1>', prompt, re.S):
         quote = next(line for line in body.splitlines() if line.startswith("Uses"))
         recs.append({"id": aid, "use_case": quote, "domain_guess": "x", "non_coding": False,
                      "techniques_described": [{"name": "purpose", "evidence_quote": quote}], "notable": None})
@@ -47,7 +47,7 @@ def test_extract_batch_accepts_valid_and_rejects_fabricated():
 
 def test_call_error_splits_batch_down_to_single_artifacts():
     def fn(prompt):
-        if prompt.count("<artifact ") > 1:
+        if prompt.count("<artifact-") > 1:
             return CallResult(None, "exit 1: overloaded", 1.0, None)
         return good(prompt)
 
@@ -107,7 +107,7 @@ def test_partial_failure_is_journaled(fctx, monkeypatch):
     marker = fctx.blobs.get(reps[0]["blob_sha"])
 
     def fn(prompt):
-        if prompt.count("<artifact ") > 1 or marker in prompt:
+        if prompt.count("<artifact-") > 1 or marker in prompt:
             return CallResult(None, "overloaded", 1.0, None)
         return real.call("sonnet", s6.SYSTEM_A, prompt, s6.RECORDS_SCHEMA)
 

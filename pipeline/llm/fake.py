@@ -6,7 +6,7 @@ from collections import Counter
 from pipeline.llm.client import CallResult
 
 USE_CASE_RE = re.compile(r"^Uses Claude to .+$", re.M)
-ITEM_RE = re.compile(r'<artifact id="([^"]+)">\n(.*?)\n</artifact>', re.S)
+ITEM_RE = re.compile(r'<artifact-([0-9a-f]+) id="([^"]+)">\n(.*?)\n</artifact-\1>', re.S)
 STOP = {"claude", "uses", "about", "their", "which", "there"}
 
 
@@ -15,7 +15,7 @@ class FakeLLM:
         props = schema.get("properties", {})
         if "records" in props:
             records = []
-            for aid, text in ITEM_RE.findall(prompt):
+            for _nonce, aid, text in ITEM_RE.findall(prompt):
                 m = USE_CASE_RE.search(text)
                 first = next((line.strip() for line in text.splitlines() if line.strip()), "")
                 use_case = m.group(0) if m else first[:120]
