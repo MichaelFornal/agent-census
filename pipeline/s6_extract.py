@@ -1,5 +1,6 @@
 """S6 tier-2 extraction (PRD §4 S6, §5): one representative per distinct cluster, 20 per claude -p call,
-3 calls in parallel (PRD §9.1). A call error splits the batch; a plan limit stops the stage cleanly.
+3 calls in parallel (PRD §9.1). A call error splits the batch; a plan limit, or a batch in which every
+call failed (an outage), stops the stage cleanly without journaling that batch.
 """
 import json
 import random
@@ -19,7 +20,6 @@ TEXT_KINDS = ("claude_md", "skill", "agent", "command")
 MAX_CHARS = 6000
 BATCH = 20
 WORKERS = 3
-MAX_CONSECUTIVE_FAILED_BATCHES = 5
 TABLES = ("semantics", "semantics_rejects", "llm_calls")
 
 
@@ -79,12 +79,10 @@ def run(ctx: Ctx, opts: Opts) -> RunStats:
     p = PASSES[opts.pass_id]
     reps = representatives(ctx)
     random.Random(p.order_seed).shuffle(reps)  # passes see artifacts in different orders (PRD §6.2)
-    units = [Unit(unit_key("s6", VERSION, p.pass_id, p.system, r["cluster_id"], r["blob_sha"]), r) for r in reps]
+    units = [Unit(unit_key("s6", VERSION, p.pass_id, p.model, p.system, r["cluster_id"], r["blob_sha"]), r) for r in reps]
     llm = make_llm(ctx.llm)
-    failed = 0
 
     def work(batch: list[Unit]) -> dict[str, list[dict]]:
-        nonlocal failed
         texts = {u.payload["blob_sha"]: ctx.blobs.get(u.payload["blob_sha"]) for u in batch}
         chunks = [[u.payload for u in batch[i:i + BATCH]] for i in range(0, len(batch), BATCH)]
         try:
@@ -93,9 +91,8 @@ def run(ctx: Ctx, opts: Opts) -> RunStats:
         except LLMLimitReached as e:
             raise StopStage(f"plan limit: {e}") from e
         out = {t: [row for part in parts for row in part[t]] for t in TABLES}
-        failed = failed + 1 if all(c["error"] for c in out["llm_calls"]) else 0
-        if failed >= MAX_CONSECUTIVE_FAILED_BATCHES:
-            raise StopStage(f"{failed} consecutive batches failed; last error: {out['llm_calls'][-1]['error']}")
+        if out["llm_calls"] and all(c["error"] for c in out["llm_calls"]):
+            raise StopStage(f"every call in the batch failed; last error: {out['llm_calls'][-1]['error']}")
         return out
 
     return run_batched(ctx, "s6", units, work, BATCH * WORKERS, opts.limit)

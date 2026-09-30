@@ -86,3 +86,60 @@ def test_passes_on_fixtures(fctx):
     assert s6.run(fctx, Opts()).units_run == 0
     s6.run(fctx, Opts(pass_id="b", limit=3))
     assert sum(1 for s in fctx.tables.read("semantics") if s["pass_id"] == "b") == 3
+
+
+def test_batch_where_every_call_fails_stops_unjournaled(fctx, monkeypatch):
+    run_until(fctx, "s5")
+    original = s6.make_llm
+    monkeypatch.setattr(s6, "make_llm",
+                        lambda name: ScriptLLM(lambda p: CallResult(None, "timeout", 1.0, None)))
+    stats = s6.run(fctx, Opts())
+    assert stats.stopped.startswith("every call in the batch failed") and stats.units_run == 0
+    assert fctx.journal("s6").entries() == [] and fctx.tables.read("semantics_rejects") == []
+    monkeypatch.setattr(s6, "make_llm", original)
+    assert s6.run(fctx, Opts()).units_run == 11
+
+
+def test_partial_failure_is_journaled(fctx, monkeypatch):
+    run_until(fctx, "s5")
+    real = s6.make_llm("fake")
+    reps = s6.representatives(fctx)
+    marker = fctx.blobs.get(reps[0]["blob_sha"])
+
+    def fn(prompt):
+        if prompt.count("<artifact ") > 1 or marker in prompt:
+            return CallResult(None, "overloaded", 1.0, None)
+        return real.call("sonnet", s6.SYSTEM_A, prompt, s6.RECORDS_SCHEMA)
+
+    monkeypatch.setattr(s6, "make_llm", lambda name: ScriptLLM(fn))
+    stats = s6.run(fctx, Opts())
+    assert stats.stopped is None and stats.units_run == 11
+    rejects = fctx.tables.read("semantics_rejects")
+    assert [r["reason"] for r in rejects] == ["call_error"]
+    assert len(fctx.tables.read("semantics")) == 10
+
+
+def test_plan_limit_in_a_later_chunk_discards_the_whole_batch(fctx, monkeypatch):
+    run_until(fctx, "s5")
+    monkeypatch.setattr(s6, "BATCH", 4)
+    real = s6.make_llm("fake")
+    reps = s6.representatives(fctx)
+    import random
+    random.Random(0).shuffle(reps)
+    trigger = fctx.blobs.get(reps[8]["blob_sha"])  # first artifact of the third chunk
+
+    def fn(prompt):
+        if trigger in prompt:
+            raise LLMLimitReached("Claude usage limit reached")
+        return real.call("sonnet", s6.SYSTEM_A, prompt, s6.RECORDS_SCHEMA)
+
+    original = s6.make_llm
+    monkeypatch.setattr(s6, "make_llm", lambda name: ScriptLLM(fn))
+    stats = s6.run(fctx, Opts())
+    assert stats.stopped.startswith("plan limit") and stats.units_run == 0
+    assert fctx.tables.read("semantics") == [] and fctx.journal("s6").entries() == []
+    monkeypatch.setattr(s6, "make_llm", original)
+    stats = s6.run(fctx, Opts())
+    assert stats.units_run == 11
+    ids = [r["cluster_id"] for r in fctx.tables.read("semantics")]
+    assert len(ids) == 11 == len(set(ids))
