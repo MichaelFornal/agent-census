@@ -95,3 +95,43 @@ def test_reredact_reports_how_many_blobs_it_rewrote(fctx, capsys):
     out = capsys.readouterr().out
     assert "re-redacted 0 of" in out
     assert int(out.split(" of ")[1].split()[0]) > 0
+
+
+def test_audit_exits_nonzero_on_problems(ctx, capsys):
+    run_batched(ctx, "s1", [Unit("k", "o/r")], lambda b: {"repo_hits": [
+        {"repo": "o/r", "path": "CLAUDE.md", "component": "claude_md", "query_id": "q", "blob_sha": "s",
+         "is_fork": False}]}, batch_size=1, log=lambda m: None)
+    assert cli.main(["audit", "s1", "--edition", "test"]) == 0
+    assert "nothing lost or duplicated" in capsys.readouterr().out
+    ctx.tables.delete_part("repo_hits", next(iter(ctx.tables.parts("repo_hits"))))
+    assert cli.main(["audit", "s1", "--edition", "test"]) == 1
+
+
+def test_status_shows_deferred_units_and_s1_families(ctx, capsys):
+    from pipeline.runner import Partial, write_state
+
+    run_batched(ctx, "s2", [Unit("a", "o/a"), Unit("b", "o/b")],
+                lambda batch: Partial({"repos": [{"repo": "o/a", "missing": False, "canary": False}]}, {"b": "x"}),
+                batch_size=2, log=lambda m: None, give_up=lambda u, e: {})
+    write_state(ctx, "s1", {"families_done": ["claude_md/nonfork"], "complete": False})
+    cli.main(["status", "--edition", "test"])
+    out = capsys.readouterr().out
+    assert "s2: units=1 parts=1 repos=1 harness_files=0 redactions=0 deferred=1" in out
+    assert "s1 families done: claude_md/nonfork; complete: False" in out
+
+
+def test_supervise_detach_starts_a_new_session(monkeypatch, capsys, isolated_data):
+    seen = {}
+
+    class P:
+        pid = 777
+
+    def popen(cmd, **kw):
+        seen.update(cmd=cmd, kw=kw)
+        return P()
+
+    monkeypatch.setattr(cli.subprocess, "Popen", popen)
+    assert cli.main(["supervise", "s1", "--edition", "test", "--limit", "5", "--detach"]) == 0
+    assert seen["cmd"][1:] == ["-m", "pipeline.cli", "supervise", "s1", "--edition", "test", "--limit", "5"]
+    assert seen["kw"]["start_new_session"] is True
+    assert "pid 777" in capsys.readouterr().out

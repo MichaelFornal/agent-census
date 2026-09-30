@@ -1,13 +1,14 @@
 """census: the pipeline's command line (PRD §8)."""
 import argparse
 import importlib
+import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
 
 from pipeline.context import Ctx, Opts, make_ctx
 from pipeline.paths import DEFAULT_EDITION
-from pipeline.runner import STAGE_TABLES, RunStats, reset
+from pipeline.runner import STAGE_TABLES, RunStats, read_state, reset
 
 PIPELINE = ["s1", "s2", "s3", "s4", "s5", "s6", "s7"]
 MODULES = {
@@ -50,15 +51,22 @@ def run_all(ctx: Ctx, opts: Opts) -> int:
 def status(ctx: Ctx) -> None:
     for stage in [*PIPELINE]:
         entries = ctx.journal(stage).entries()
-        if not entries:
+        attempts = ctx.attempts(stage).counts()
+        if not entries and not attempts:
             print(f"{stage}: not started")
             continue
         rows: Counter[str] = Counter()
         for e in entries:
             rows.update(e["rows"])
-        units = sum(len(e["units"]) for e in entries)
-        print(f"{stage}: units={units} parts={len(entries)} "
-              + " ".join(f"{t}={rows[t]}" for t in STAGE_TABLES[stage]))
+        done = {u for e in entries for u in e["units"]}
+        deferred = sum(1 for u in attempts if u not in done)
+        print(f"{stage}: units={len(done)} parts={len(entries)} "
+              + " ".join(f"{t}={rows[t]}" for t in STAGE_TABLES[stage])
+              + (f" deferred={deferred}" if deferred else ""))
+    s1 = read_state(ctx, "s1")
+    if s1:
+        print(f"s1 families done: {', '.join(s1.get('families_done', [])) or 'none'}; "
+              f"complete: {bool(s1.get('complete'))}")
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -80,6 +88,14 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_parser("freeze", parents=[common])
     sub.add_parser("labels", parents=[common])
     sub.add_parser("reredact", parents=[common])
+    a = sub.add_parser("audit", parents=[common])
+    a.add_argument("stage", choices=[*STAGE_TABLES])
+    s = sub.add_parser("supervise", parents=[common])
+    s.add_argument("stage", choices=[*STAGE_TABLES])
+    s.add_argument("--limit", type=int)
+    s.add_argument("--pass", dest="pass_id", choices=["a", "b"], default="a")
+    s.add_argument("--detach", action="store_true",
+                   help="run in a new session, so the supervisor outlives the shell that started it")
     f = sub.add_parser("facts", parents=[common])
     f.add_argument("--check", action="store_true")
     f.add_argument("--site-data", type=Path, help="with --check, where the site's copy of facts.json lives")
@@ -117,6 +133,29 @@ def main(argv: list[str] | None = None) -> int:
         from pipeline.redact import REDACT_VERSION
         changed, total = reredact(ctx)
         print(f"re-redacted {changed} of {total} blobs to v{REDACT_VERSION}")
+    elif args.cmd == "audit":
+        from pipeline.audit import audit
+        problems = audit(ctx, args.stage)
+        for p in problems:
+            print(p)
+        if not problems:
+            print(f"{args.stage}: nothing lost or duplicated")
+        return 1 if problems else 0
+    elif args.cmd == "supervise":
+        run_args = ((["--limit", str(args.limit)] if args.limit is not None else [])
+                    + (["--pass", args.pass_id] if args.pass_id != "a" else []))
+        if args.detach:
+            logs = ctx.root / "logs"
+            logs.mkdir(parents=True, exist_ok=True)
+            out = logs / f"supervise-{args.stage}.out"
+            cmd = [sys.executable, "-m", "pipeline.cli", "supervise", args.stage, "--edition", args.edition, *run_args]
+            with out.open("ab") as f:
+                proc = subprocess.Popen(cmd, start_new_session=True, stdin=subprocess.DEVNULL, stdout=f,
+                                        stderr=subprocess.STDOUT)
+            print(f"supervising {args.stage} as pid {proc.pid}; stage log {logs / (args.stage + '.log')}")
+            return 0
+        from pipeline.supervise import supervise
+        return supervise(ctx, args.stage, run_args)
     elif args.cmd == "facts":
         if args.site_data:
             ctx.site_data = args.site_data
@@ -126,3 +165,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def entry() -> None:
     sys.exit(main())
+
+
+if __name__ == "__main__":
+    entry()
