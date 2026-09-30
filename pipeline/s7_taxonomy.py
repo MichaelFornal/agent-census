@@ -30,11 +30,11 @@ LABEL_SCHEMA = {"type": "object", "properties": {"label": {"type": "string"}, "n
                 "required": ["label", "non_coding"]}
 
 
-def _label(llm, sentences: list[str]) -> tuple[str, bool]:
+def _label(llm, sentences: list[str]) -> tuple[str, bool] | None:
+    """None when the call failed; the caller stops the stage so the failure is retried on rerun."""
     res = llm.call(LABEL_MODEL, LABEL_SYSTEM, "\n".join(f"- {s}" for s in sentences), LABEL_SCHEMA)
     if res.data is None:
-        print(f"s7: label call failed ({res.error}); left as Unlabelled for review", flush=True)
-        return "Unlabelled", False
+        return None
     return str(res.data.get("label") or "Unlabelled"), bool(res.data.get("non_coding"))
 
 
@@ -76,8 +76,12 @@ def taxonomy(ctx: Ctx, sem: list[dict]) -> dict[str, list[dict]]:
         if l2[i] != -1:
             groups.setdefault((int(l1[i]), int(l2[i])), []).append(i)
     ids = {g: "uc-" + unit_key(sorted(sem[i]["cluster_id"] for i in idx))[:10] for g, idx in groups.items()}
-    for g, idx in sorted(groups.items(), key=lambda kv: ids[kv[0]]):
-        label, non_coding = _label(llm, [sem[i]["use_case"] for i in idx[:LABEL_SAMPLE]])
+    ordered = sorted(groups.items(), key=lambda kv: ids[kv[0]])
+    labelled = [_label(llm, [sem[i]["use_case"] for i in idx[:LABEL_SAMPLE]]) for _, idx in ordered]
+    failed = sum(1 for r in labelled if r is None)
+    if failed:  # after all calls, so the successes are cached before the stage stops
+        raise StopStage(f"{failed} of {len(labelled)} label calls failed; rerun to retry (successes are cached)")
+    for (g, idx), (label, non_coding) in zip(ordered, labelled):
         out["use_cases"].append({"use_case_id": ids[g], "parent_id": ids[(g[0], None)] if g[1] is not None else None,
                                  "level": 1 if g[1] is None else 2, "label": label, "non_coding": non_coding,
                                  "size": len(idx)})
@@ -98,7 +102,10 @@ def taxonomy(ctx: Ctx, sem: list[dict]) -> dict[str, list[dict]]:
 
 def run(ctx: Ctx, opts: Opts) -> RunStats:
     sem = sorted((s for s in ctx.tables.read("semantics") if s["pass_id"] == "a"), key=lambda s: s["cluster_id"])
-    fp = unit_key(VERSION, ctx.embedder, [(s["cluster_id"], s["use_case"], s["techniques_json"]) for s in sem])
+    fp = unit_key(VERSION, ctx.embedder, ctx.llm,
+                  [(t.id, t.label, t.definition) for t in TECHNIQUES.values()],
+                  (LABEL_MODEL, LABEL_SYSTEM, LABEL_SAMPLE, CANDIDATE_SIM, UNCHARTED_MAX_SIZE, UNCHARTED_LIMIT),
+                  [(s["cluster_id"], s["use_case"], s["techniques_json"]) for s in sem])
 
     def work() -> dict[str, list[dict]]:
         try:

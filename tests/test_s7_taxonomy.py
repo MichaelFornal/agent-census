@@ -5,6 +5,8 @@ from helpers import run_until
 from pipeline import editorial, s7_taxonomy as s7
 from pipeline.context import Opts
 from pipeline.kinds import artifact_id
+from pipeline.llm.client import CallResult, LLMLimitReached
+from pipeline.llm.fake import FakeLLM
 
 
 def clusters(fctx):
@@ -46,6 +48,65 @@ def test_export_drafts_keeps_approvals(fctx, monkeypatch, tmp_path):
     path.write_text(json.dumps(labels))
     again = json.loads(editorial.export_drafts(fctx).read_text())
     assert again[uc]["status"] == "approved" and again[uc]["label"] == "Web apps" and again[uc]["draft_label"]
+    fresh = {u["use_case_id"]: u for u in fctx.tables.read("use_cases")}[uc]
+    assert (again[uc]["draft_label"], again[uc]["level"], again[uc]["size"], again[uc]["non_coding"]) == (
+        fresh["label"], fresh["level"], fresh["size"], fresh["non_coding"])
+    labels[uc].update(draft_label="stale", level=9, size=999, non_coding=not fresh["non_coding"])
+    path.write_text(json.dumps(labels))
+    refreshed = json.loads(editorial.export_drafts(fctx).read_text())[uc]
+    assert (refreshed["draft_label"], refreshed["level"], refreshed["size"], refreshed["non_coding"]) == (
+        fresh["label"], fresh["level"], fresh["size"], fresh["non_coding"])
+    assert refreshed["status"] == "approved" and refreshed["label"] == "Web apps"
     assert editorial.resolve(again, uc) == {"status": "approved", "label": "Web apps"}
     assert editorial.resolve({"*": {"status": "approved"}}, "uc-x") == {"status": "approved", "label": None}
     assert editorial.resolve({}, "uc-x") == {"status": "draft", "label": None}
+
+
+class Wrapper:
+    def __init__(self, fail_first=False, raises=False):
+        self.inner, self.fail_first, self.raises, self.calls, self.failed = FakeLLM(), fail_first, raises, 0, []
+
+    def call(self, model, system, prompt, schema):
+        self.calls += 1
+        if self.raises:
+            raise LLMLimitReached("quota")
+        if self.fail_first and not self.failed:
+            self.failed.append(prompt)
+            return CallResult(None, "boom", 0.0, None)
+        return self.inner.call(model, system, prompt, schema)
+
+
+def test_failed_label_calls_stop_and_resume_uses_cache(fctx, monkeypatch):
+    run_until(fctx, "s6")
+    bad = Wrapper(fail_first=True)
+    monkeypatch.setattr(s7, "make_llm", lambda name: bad)
+    stats = s7.run(fctx, Opts())
+    assert stats.stopped and "label calls failed" in stats.stopped
+    assert fctx.tables.read("use_cases") == []
+    good = Wrapper()
+    monkeypatch.setattr(s7, "make_llm", lambda name: good)
+    stats = s7.run(fctx, Opts())
+    assert stats.stopped is None
+    assert good.calls == len(bad.failed) == 1
+    assert fctx.tables.read("use_cases")
+
+
+def test_label_plan_limit_becomes_stop(fctx, monkeypatch):
+    run_until(fctx, "s6")
+    monkeypatch.setattr(s7, "make_llm", lambda name: Wrapper(raises=True))
+    assert s7.run(fctx, Opts()).stopped.startswith("plan limit")
+
+
+def test_use_case_ids_are_stable(fctx):
+    run_until(fctx, "s6")
+    sem = sorted((x for x in fctx.tables.read("semantics") if x["pass_id"] == "a"), key=lambda x: x["cluster_id"])
+    a, b = s7.taxonomy(fctx, sem), s7.taxonomy(fctx, sem)
+    assert a["use_cases"] == b["use_cases"] and a["uc_membership"] == b["uc_membership"]
+    assert all(u["use_case_id"].startswith("uc-") and len(u["use_case_id"]) == 13 for u in a["use_cases"])
+
+
+def test_changing_llm_changes_fingerprint(fctx, monkeypatch):
+    run_until(fctx, "s7")
+    monkeypatch.setattr(s7, "make_llm", lambda name: FakeLLM())
+    fctx.llm = "other"
+    assert s7.run(fctx, Opts()).units_run == 1

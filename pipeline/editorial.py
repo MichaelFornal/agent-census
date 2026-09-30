@@ -8,6 +8,7 @@ from pathlib import Path
 
 from pipeline.context import Ctx
 from pipeline.paths import editorial_dir
+from pipeline.store import atomic_write
 
 
 def labels_path(edition: str) -> Path:
@@ -31,6 +32,5 @@ def export_drafts(ctx: Ctx) -> Path:
         e.update(draft_label=uc["label"], level=uc["level"], parent_id=uc["parent_id"], size=uc["size"],
                  non_coding=uc["non_coding"])
     p = labels_path(ctx.edition)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(labels, indent=2, sort_keys=True) + "\n")
+    atomic_write(p, (json.dumps(labels, indent=2, sort_keys=True) + "\n").encode())
     return p
