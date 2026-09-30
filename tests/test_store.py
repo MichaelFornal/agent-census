@@ -17,6 +17,16 @@ def test_blob_store_redacts_before_writing(tmp_path):
     assert store.path(oid).parent.name == "ab"
 
 
+def test_blob_store_keeps_redaction_counts_in_a_sidecar(tmp_path):
+    store = BlobStore(tmp_path / "blobs")
+    oid = "ab" * 20
+    assert store.redaction_counts(oid) == {}
+    store.put(oid, "token ghp_" + "A1b2C3d4E5" * 4 + "\n")
+    assert store.redaction_counts(oid) == {"github_token": 1}
+    store.put("cd" * 20, "plain\n")
+    assert store.redaction_counts("cd" * 20) == {}
+
+
 def test_tables_write_read_and_empty_views(tmp_path):
     t = Tables(tmp_path)
     assert t.read("repo_hits") == []

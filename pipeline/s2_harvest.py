@@ -64,13 +64,27 @@ def flatten(tree: dict | None, prefix: str) -> tuple[list[dict], int]:
     return files, cut
 
 
+def _not_found(body: dict) -> set[tuple]:
+    """GraphQL error paths of type NOT_FOUND, e.g. ("r3",) or ("r0", "b2")."""
+    return {tuple(e["path"]) for e in body.get("errors") or [] if e.get("type") == "NOT_FOUND" and e.get("path")}
+
+
+def _error_type(body: dict, alias: str) -> str:
+    for e in body.get("errors") or []:
+        if e.get("path") and e["path"][0] == alias:
+            return e.get("type") or "unknown"
+    return "unknown"
+
+
 def parse_meta(batch: list[tuple[str, list[str]]], body: dict) -> tuple[list[dict], list[dict]]:
     data = body.get("data") or {}
+    gone = _not_found(body)
     repos, files = [], []
     for i, (repo, extra) in enumerate(batch):
         r = data.get(f"r{i}")
         if r is None:
-            repos.append({"repo": repo, "missing": True, "error": "not_found", "canary": False})
+            error = "not_found" if (f"r{i}",) in gone else f"graphql_error:{_error_type(body, f'r{i}')}"
+            repos.append({"repo": repo, "missing": True, "error": error, "canary": False})
             continue
         entries, cut = flatten(r.get("claude"), ".claude")
         for j, p in enumerate(ROOT_FILES + extra):
@@ -159,6 +173,7 @@ def fetch_blobs(client: GraphQLClient, blobs: list[dict], store: BlobStore) -> t
             return {**s1, **s2_}, r1 + r2
         return {blobs[0]["oid"]: "fetch_error"}, []
     data = body.get("data") or {}
+    gone = _not_found(body)
     status: dict[str, str] = {}
     redactions: list[dict] = []
     for i, (_, oids) in enumerate(items):
@@ -166,7 +181,8 @@ def fetch_blobs(client: GraphQLClient, blobs: list[dict], store: BlobStore) -> t
         for j, oid in enumerate(oids):
             b = r.get(f"b{j}")
             if b is None:
-                status[oid] = "missing"
+                is_gone = (f"r{i}",) in gone or (f"r{i}", f"b{j}") in gone
+                status[oid] = "missing" if is_gone else "fetch_error"
             elif b["isBinary"]:
                 status[oid] = "binary"
             elif b["isTruncated"] or b.get("text") is None:
@@ -175,6 +191,14 @@ def fetch_blobs(client: GraphQLClient, blobs: list[dict], store: BlobStore) -> t
                 redactions += [{"blob_sha": oid, "rule": k, "n": n} for k, n in store.put(oid, b["text"]).items()]
                 status[oid] = ""
     return status, redactions
+
+
+def _redaction_rows(ctx: Ctx, oids: list[str]) -> list[dict]:
+    """Redaction rows from the blob store's sidecar counts, so a kill after a blob write loses nothing."""
+    rows = []
+    for oid in dict.fromkeys(oids):
+        rows += [{"blob_sha": oid, "rule": k, "n": n} for k, n in ctx.blobs.redaction_counts(oid).items() if n > 0]
+    return rows
 
 
 def harvest_batch(ctx: Ctx, client: GraphQLClient, payloads: list[tuple[str, list[str]]]) -> dict[str, list[dict]]:
@@ -195,15 +219,14 @@ def harvest_batch(ctx: Ctx, client: GraphQLClient, payloads: list[tuple[str, lis
         rows.append({"repo": f["repo"], "path": f["path"], "kind": kind, "blob_sha": f["oid"], "size": f["size"],
                      "skip_reason": reason})
     status: dict[str, str] = {}
-    redactions: list[dict] = []
     for chunk in plan_blob_batches(wanted):
-        s, r = fetch_blobs(client, chunk, ctx.blobs)
+        s, _ = fetch_blobs(client, chunk, ctx.blobs)
         status.update(s)
-        redactions += r
     for row in rows:
         if row["skip_reason"] is None and status.get(row["blob_sha"]):
             row["skip_reason"] = status[row["blob_sha"]]
         row["fetched"] = row["skip_reason"] is None and ctx.blobs.has(row["blob_sha"])
+    redactions = _redaction_rows(ctx, [r["blob_sha"] for r in rows if r["fetched"]])
     return {"repos": repos, "harness_files": rows, "redactions": redactions}
 
 
@@ -213,14 +236,15 @@ def _run_fixtures(ctx: Ctx) -> RunStats:
     fp = unit_key(VERSION, repos, [(f.repo, f.path, git_blob_sha(f.data)) for f in files])
 
     def work() -> dict[str, list[dict]]:
-        rows, redactions = [], []
+        rows = []
         for f in files:
             oid, kind = git_blob_sha(f.data), classify(f.path) or "other"
             fetch = kind in PARSED_KINDS
             if fetch and not ctx.blobs.has(oid):
-                redactions += [{"blob_sha": oid, "rule": k, "n": n} for k, n in ctx.blobs.put(oid, f.data.decode()).items()]
+                ctx.blobs.put(oid, f.data.decode())
             rows.append({"repo": f.repo, "path": f.path, "kind": kind, "blob_sha": oid, "size": len(f.data),
                          "fetched": fetch, "skip_reason": None if fetch else "not_fetched_kind"})
+        redactions = _redaction_rows(ctx, [r["blob_sha"] for r in rows if r["fetched"]])
         return {"repos": repos, "harness_files": rows, "redactions": redactions}
 
     return run_whole(ctx, "s2", fp, work)

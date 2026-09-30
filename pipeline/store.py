@@ -1,4 +1,5 @@
 """Content-addressed blob store and Parquet part tables (PRD §4 Storage)."""
+import json
 import os
 from pathlib import Path
 
@@ -31,10 +32,19 @@ class BlobStore:
     def has(self, oid: str) -> bool:
         return self.path(oid).exists()
 
+    def counts_path(self, oid: str) -> Path:
+        return self.root / oid[:2] / f"{oid}.json"
+
     def put(self, oid: str, text: str) -> dict[str, int]:
         clean, counts = redact(text)
+        # Counts go first: a kill between the two writes leaves no blob, so the blob is refetched and rewritten.
+        atomic_write(self.counts_path(oid), json.dumps(counts).encode())
         atomic_write(self.path(oid), zstandard.ZstdCompressor(level=10).compress(clean.encode()))
         return counts
+
+    def redaction_counts(self, oid: str) -> dict[str, int]:
+        p = self.counts_path(oid)
+        return json.loads(p.read_text()) if p.exists() else {}
 
     def get(self, oid: str) -> str:
         return zstandard.ZstdDecompressor().decompress(self.path(oid).read_bytes()).decode()
