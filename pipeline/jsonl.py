@@ -8,14 +8,37 @@ from typing import Any
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
+
+    lines = path.read_text().splitlines()
+    # Find indices of non-empty lines
+    non_empty_indices = [i for i, line in enumerate(lines) if line.strip()]
+
     out = []
-    for line in path.read_text().splitlines():
-        if not line.strip():
-            continue
+    for idx, line_idx in enumerate(non_empty_indices):
+        line = lines[line_idx]
+        is_last_non_empty = (idx == len(non_empty_indices) - 1)
+
         try:
-            out.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue  # a partial line from a killed writer; its record was never committed
+            obj = json.loads(line)
+        except json.JSONDecodeError as e:
+            if is_last_non_empty:
+                # Last non-empty line is partial from killed writer; skip it
+                continue
+            else:
+                # Corrupt line in the middle; raise with line number
+                raise ValueError(f"{path}:{line_idx + 1}: corrupt JSONL line") from e
+
+        # Check that the object is a dict (not just any JSON)
+        if not isinstance(obj, dict):
+            if is_last_non_empty:
+                # Last line is non-object; skip it as partial
+                continue
+            else:
+                # Non-object line in the middle; raise
+                raise ValueError(f"{path}:{line_idx + 1}: corrupt JSONL line")
+
+        out.append(obj)
+
     return out
 
 
