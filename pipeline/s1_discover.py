@@ -1,8 +1,9 @@
 """S1 discover: adaptive size lattice over GitHub code search (PRD §4 S1).
 
 A query over the cap is bisected on `size:`; at a single byte size it is split by the seed's floor
-qualifiers, and whatever still exceeds the cap is recorded in s1_overflows. Every count and page
-is cached in search_cache.jsonl, so a killed walk replays from the cache. In slice mode
+qualifiers, and whatever still exceeds the cap is recorded in s1_overflows. Every count is
+cached in search_cache.jsonl, so a killed walk replays without requests; result pages are committed
+with their node. In slice mode
 (opts.limit = target repos) child ranges are visited in a seeded random order, so the first leaves
 are spread across the size range instead of all being tiny files.
 
