@@ -52,7 +52,6 @@ class Hub:
         self.fail_blobs: set[str] = set()  # a blob query naming one of these oids answers 502
         self.not_found_blobs: set[str] = set()
         self.truncated: set[str] = set()  # repos whose REST tree comes back truncated
-        self.meta_sizes: list[int] = []
         self.path_queries: list[str] = []
         self.blob_queries: list[str] = []
         self.tree_calls: list[str] = []
@@ -66,7 +65,6 @@ class Hub:
             return httpx.Response(502, text="Bad Gateway")
         is_meta = "HEAD:.claude" in q
         if is_meta:
-            self.meta_sizes.append(len(names))
             bad = [self.fail_meta[n] for n in names if n in self.fail_meta]
             if bad:
                 return httpx.Response(bad[0], text="Bad Gateway")
@@ -389,3 +387,59 @@ def test_run_gives_up_after_max_attempts_and_records_why(ctx, monkeypatch):
     assert (stats.units_gave_up, stats.stopped) == (1, None)
     row = ctx.tables.read("repos")[0]
     assert (row["repo"], row["missing"], row["error"]) == ("o/a", True, "unreachable:graphql_502")
+
+
+def mono_hub():
+    extra = [f"pkg{i:03d}/CLAUDE.md" for i in range(s2.MAX_EXTRA + 1)]
+    return Hub({"o/mono": node()}), extra
+
+
+def test_follow_up_query_with_a_non_200_status_defers_the_repo(ctx):
+    hub, extra = mono_hub()
+    real = hub.gql
+
+    def forbidden(req):
+        q = json.loads(req.content)["query"]
+        if "HEAD:.claude" not in q and "HEAD:pkg" in q:
+            return httpx.Response(403, json={"message": "Forbidden"})
+        return real(req)
+
+    hub.gql = forbidden
+    out = harvest(ctx, hub, [unit("o/mono", extra)])
+    assert out.deferred == {"k:o/mono": "graphql_403"}
+    assert out.rows["repos"] == [] and out.rows["harness_files"] == []
+
+
+def test_follow_up_query_with_a_null_repo_defers_the_repo(ctx):
+    hub, extra = mono_hub()
+    real = hub.gql
+
+    def nulled(req):
+        q = json.loads(req.content)["query"]
+        if "HEAD:.claude" not in q and "HEAD:pkg" in q:
+            return httpx.Response(200, json={"data": {"r0": None},
+                                             "errors": [{"type": "RESOURCE_LIMITS_EXCEEDED", "path": ["r0"]}]})
+        return real(req)
+
+    hub.gql = nulled
+    out = harvest(ctx, hub, [unit("o/mono", extra)])
+    assert out.deferred == {"k:o/mono": "graphql_error:RESOURCE_LIMITS_EXCEEDED"}
+    assert out.rows["repos"] == [] and out.rows["harness_files"] == []
+
+
+def test_error_under_a_present_repo_makes_it_failed_not_recorded():
+    body = {"data": {"r0": node()},
+            "errors": [{"type": "SERVICE_UNAVAILABLE", "path": ["r0", "claude"]}]}
+    found, failed = s2.parse_meta([("o/a", [])], body)
+    assert found == {} and failed == {"o/a": "graphql_error:SERVICE_UNAVAILABLE"}
+    ok = {"data": {"r0": node()}, "errors": [{"type": "NOT_FOUND", "path": ["r0", "f0"]}]}
+    assert "o/a" in s2.parse_meta([("o/a", [])], ok)[0]
+
+
+def test_single_blob_502_defers_the_repo(ctx):
+    oid = "5" * 40
+    hub = Hub({"o/a": node([blob("settings.json", oid)])}, texts={oid: "{}\n"})
+    hub.fail_blobs.add(oid)
+    out = harvest(ctx, hub, [unit("o/a")])
+    assert out.deferred == {"k:o/a": "blob_fetch_error"}
+    assert out.rows["repos"] == [] and out.rows["harness_files"] == []

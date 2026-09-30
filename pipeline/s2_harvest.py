@@ -69,6 +69,14 @@ def _error_type(body: dict, alias: str) -> str:
     return "unknown"
 
 
+def _alias_failure(body: dict, alias: str) -> str | None:
+    """A non-NOT_FOUND GraphQL error at or under this repo's alias, e.g. a nulled `claude`: the data is unreliable."""
+    for e in body.get("errors") or []:
+        if e.get("type") != "NOT_FOUND" and e.get("path") and e["path"][0] == alias:
+            return f"graphql_error:{e.get('type') or 'unknown'}"
+    return None
+
+
 def _missing(repo: str, error: str) -> dict:
     return {"repo": repo, "missing": True, "error": error, "canary": False}
 
@@ -86,6 +94,9 @@ def parse_meta(batch: list[tuple[str, list[str]]], body: dict) -> tuple[dict[str
                 found[repo] = Found(_missing(repo, "not_found"), [])
             else:
                 failed[repo] = f"graphql_error:{_error_type(body, f'r{i}')}"
+            continue
+        if error := _alias_failure(body, f"r{i}"):
+            failed[repo] = error
             continue
         claude = r.get("claude") or {}
         files, subdirs = [], 0
@@ -168,15 +179,23 @@ def fetch_extra(client: GraphQLClient, wanted: list[tuple[str, str]]) -> tuple[l
             a, b = (fetch_extra(client, half) for half in _halves(wanted))
             return a[0] + b[0], {**a[1], **b[1]}
         return [], {wanted[0][0]: f"graphql_{status}"}
+    if status != 200:
+        return [], {repo: f"graphql_{status}" for repo, _ in items}
     data = body.get("data") or {}
-    out = []
+    out, errors = [], {}
     for i, (repo, paths) in enumerate(items):
-        r = data.get(f"r{i}") or {}
+        r = data.get(f"r{i}")
+        if r is None:
+            errors[repo] = f"graphql_error:{_error_type(body, f'r{i}')}"
+            continue
+        if error := _alias_failure(body, f"r{i}"):
+            errors[repo] = error
+            continue
         for j, p in enumerate(paths):
             b = r.get(f"f{j}")
             if b:
                 out.append({"repo": repo, "path": p, "oid": b["oid"], "size": b["byteSize"], "binary": b["isBinary"]})
-    return out, {}
+    return out, errors
 
 
 def fetch_tree(rest: RestClient, repo: str, oid: str) -> tuple[list[dict], bool, str | None]:
@@ -343,6 +362,7 @@ def _run_fixtures(ctx: Ctx) -> RunStats:
         return {"repos": repos, "harness_files": rows, "redactions": redactions}
 
     return run_whole(ctx, "s2", fp, work)
+
 
 def run(ctx: Ctx, opts: Opts) -> RunStats:
     if ctx.fixtures:
