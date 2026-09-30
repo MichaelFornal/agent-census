@@ -36,11 +36,23 @@ def test_other_errors_are_returned_not_raised():
     assert parse_cli_output(0, env(result="plain words"), "", 1.0).error == "no structured_output"
 
 
+def test_nonzero_exit_with_error_envelope_is_not_a_limit():
+    out = json.dumps({"is_error": True, "result": "Prompt is too long", "duration_ms": 14290})
+    r = parse_cli_output(1, out, "", 1.0)
+    assert r.data is None and r.error == "exit 1: Prompt is too long"
+
+
+def test_api_error_status_429_raises():
+    with pytest.raises(LLMLimitReached):
+        parse_cli_output(1, env(is_error=True, result="busy", api_error_status=429), "", 1.0)
+
+
 def test_claude_args_disable_tools_and_pass_schema():
     args = claude_args("sonnet", "sys", RECORDS_SCHEMA)
     assert args[args.index("--tools") + 1] == ""
     assert json.loads(args[args.index("--json-schema") + 1]) == RECORDS_SCHEMA
     assert args[args.index("--setting-sources") + 1] == "project"
+    assert "--strict-mcp-config" in args and "--disable-slash-commands" in args
 
 
 def test_quote_matching():
@@ -49,6 +61,11 @@ def test_quote_matching():
     assert quote_in_source("line one line two", src)  # flattened multi-line
     assert quote_in_source("line one\\n  line two", src)  # escaped newline
     assert not quote_in_source("line one line three", src)  # spliced: a fabrication
+
+
+def test_empty_quotes_never_match():
+    assert quote_in_source("   ", "abc") is False
+    assert quote_in_source("\\n", "abc") is False
 
 
 def rec(**kw):
@@ -63,6 +80,7 @@ def test_validate_rejects_bad_fields():
     assert validate(rec(use_case=" "), src) == "bad_use_case"
     assert validate(rec(non_coding="no"), src) == "bad_non_coding"
     assert validate(rec(techniques_described=[{"name": "t", "evidence_quote": "x" * 201}]), src) == "bad_quote_length"
+    assert validate(rec(techniques_described=[{"name": "t", "evidence_quote": "  "}]), "abc") == "bad_quote_length"
     assert validate(rec(techniques_described=[{"name": "t", "evidence_quote": "invented"}]), src) == "quote_not_verbatim"
 
 

@@ -56,11 +56,17 @@ def _ws(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
+def _normalize(quote: str) -> str:
+    return _ws(quote.replace("\\n", "\n").replace('\\"', '"'))
+
+
 def quote_in_source(quote: str, source: str) -> bool:
-    """Verbatim up to whitespace (PRD §5). A quote spliced from non-adjacent lines still fails."""
-    if quote in source:
-        return True
-    return _ws(quote.replace("\\n", "\n").replace('\\"', '"')) in _ws(source)
+    """Verbatim up to whitespace (PRD §5). A quote spliced from non-adjacent lines still fails,
+    and a quote with no content never matches."""
+    norm = _normalize(quote)
+    if not norm:
+        return False
+    return quote in source or norm in _ws(source)
 
 
 def validate(rec: dict, source: str) -> str | None:
@@ -79,7 +85,7 @@ def validate(rec: dict, source: str) -> str | None:
         if not isinstance(t, dict) or not isinstance(t.get("name"), str):
             return "bad_techniques"
         q = t.get("evidence_quote")
-        if not isinstance(q, str) or not q or len(q) > 200:
+        if not isinstance(q, str) or len(q) > 200 or not _normalize(q):
             return "bad_quote_length"
         if not quote_in_source(q, source):
             return "quote_not_verbatim"
