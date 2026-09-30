@@ -5,6 +5,7 @@ from helpers import run_until
 from pipeline import s6_extract as s6
 from pipeline.context import Opts
 from pipeline.llm.client import CallResult, LLMLimitReached
+from pipeline.runner import MAX_ATTEMPTS
 
 TEXTS = {f"s{i}": f"# Doc {i}\n\nUses Claude to do task {i}.\n" for i in range(4)}
 
@@ -38,7 +39,8 @@ def test_extract_batch_accepts_valid_and_rejects_fabricated():
         res.data["records"][1]["techniques_described"][0]["evidence_quote"] = "Never deploy on Fridays."
         return res
 
-    out = s6.extract_batch(ScriptLLM(fn), s6.PASSES["a"], items(2), TEXTS)
+    out, failed = s6.extract_batch(ScriptLLM(fn), s6.PASSES["a"], items(2), TEXTS)
+    assert failed == {}
     assert [r["cluster_id"] for r in out["semantics"]] == ["c0"]
     assert out["semantics"][0]["use_case"] == "Uses Claude to do task 0."
     assert out["semantics_rejects"] == [{"cluster_id": "c1", "pass_id": "a", "reason": "quote_not_verbatim"}]
@@ -51,14 +53,17 @@ def test_call_error_splits_batch_down_to_single_artifacts():
             return CallResult(None, "exit 1: overloaded", 1.0, None)
         return good(prompt)
 
-    out = s6.extract_batch(ScriptLLM(fn), s6.PASSES["a"], items(4), TEXTS)
+    out, failed = s6.extract_batch(ScriptLLM(fn), s6.PASSES["a"], items(4), TEXTS)
+    assert failed == {}
     assert sorted(r["cluster_id"] for r in out["semantics"]) == ["c0", "c1", "c2", "c3"]
     assert len(out["llm_calls"]) == 7 and sum(1 for c in out["llm_calls"] if c["error"]) == 3
 
 
-def test_single_artifact_call_error_is_rejected():
-    out = s6.extract_batch(ScriptLLM(lambda p: CallResult(None, "timeout", 900.0, None)), s6.PASSES["a"], items(1), TEXTS)
-    assert out["semantics_rejects"] == [{"cluster_id": "c0", "pass_id": "a", "reason": "call_error"}]
+def test_single_artifact_call_error_is_deferred_not_rejected():
+    out, failed = s6.extract_batch(ScriptLLM(lambda p: CallResult(None, "timeout", 900.0, None)), s6.PASSES["a"],
+                                   items(1), TEXTS)
+    assert failed == {"c0": "timeout"}
+    assert out["semantics_rejects"] == [] and len(out["llm_calls"]) == 1
 
 
 def test_plan_limit_stops_stage_without_journaling(fctx, monkeypatch):
@@ -100,7 +105,7 @@ def test_batch_where_every_call_fails_stops_unjournaled(fctx, monkeypatch):
     assert s6.run(fctx, Opts()).units_run == 11
 
 
-def test_partial_failure_is_journaled(fctx, monkeypatch):
+def test_call_error_is_deferred_then_rejected_after_max_attempts(fctx, monkeypatch):
     run_until(fctx, "s5")
     real = s6.make_llm("fake")
     reps = s6.representatives(fctx)
@@ -113,9 +118,13 @@ def test_partial_failure_is_journaled(fctx, monkeypatch):
 
     monkeypatch.setattr(s6, "make_llm", lambda name: ScriptLLM(fn))
     stats = s6.run(fctx, Opts())
-    assert stats.stopped is None and stats.units_run == 11
-    rejects = fctx.tables.read("semantics_rejects")
-    assert [r["reason"] for r in rejects] == ["call_error"]
+    assert (stats.units_run, stats.units_deferred) == (10, 1) and "deferred" in stats.stopped
+    assert fctx.tables.read("semantics_rejects") == [] and len(fctx.tables.read("semantics")) == 10
+    for _ in range(MAX_ATTEMPTS - 2):
+        assert s6.run(fctx, Opts()).units_deferred == 1  # the lone failing artifact is retried, not an outage
+    stats = s6.run(fctx, Opts())
+    assert (stats.units_gave_up, stats.stopped) == (1, None)
+    assert [r["reason"] for r in fctx.tables.read("semantics_rejects")] == ["call_error"]
     assert len(fctx.tables.read("semantics")) == 10
 
 
