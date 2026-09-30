@@ -1,6 +1,9 @@
-import pytest
-from helpers import fixture_text
+import json
 
+import pytest
+from helpers import FIXTURES, fixture_text
+
+from pipeline.fixtures import fixture_files
 from pipeline.parsers.errors import ParseError
 from pipeline.parsers.markdown import (parse_agent, parse_claude_md, parse_command, parse_hook_script,
                                        parse_skill, scan_markdown)
@@ -72,3 +75,93 @@ def test_hook_script_language():
                              [])["language"] == "shell"
     assert parse_hook_script("#!/usr/bin/env python3\nprint(1)\n", ".claude/hooks/check", [])["language"] == "python"
     assert parse_hook_script("echo hi\n", ".claude/hooks/check", [])["language"] == "other"
+
+
+def test_date_key_frontmatter_is_stringified():
+    d = parse_command("---\n2024-01-01: x\n---\nbody\n", ".claude/commands/x.md", [])
+    assert d["frontmatter"] == {"2024-01-01": "x"}
+
+
+def test_deeply_nested_frontmatter_is_invalid_not_recursion_error():
+    with pytest.raises(ParseError) as e:
+        parse_command("---\na: " + "[" * 5000 + "\n---\nbody\n", ".claude/commands/x.md", [])
+    assert e.value.error_class == "frontmatter_invalid"
+
+
+def test_non_dict_frontmatter_is_invalid_with_partial():
+    with pytest.raises(ParseError) as e:
+        parse_command("---\n- a\n- b\n---\nbody\n", ".claude/commands/x.md", [])
+    assert e.value.error_class == "frontmatter_invalid"
+    assert e.value.partial["frontmatter_end_line"] == 4
+    assert e.value.partial["lines"] == 5
+
+
+def test_bom_frontmatter_is_found():
+    text = "\ufeff---\nname: x\n---\n# T\n"
+    d = parse_skill(text, ".claude/skills/x/SKILL.md", [])
+    assert d["frontmatter"]["name"] == "x"
+    assert d["frontmatter_end_line"] == 3
+    assert d["bytes"] == len(text.encode())
+    assert [h["line"] for h in d["headings"]] == [4]
+
+
+def test_scan_markdown_offset_shifts_lines():
+    lines = ["# H", "@a/b.md", "```sh", "x", "```"]
+    d = scan_markdown(lines, offset=10)
+    assert d["headings"][0]["line"] == 11
+    assert d["imports"] == [{"target": "a/b.md", "line": 12}]
+    assert d["code_blocks"] == [{"lang": "sh", "start_line": 13, "end_line": 15}]
+
+
+def test_unclosed_fence_runs_to_last_line_and_hides_headings():
+    d = scan_markdown(["# A", "```py", "# not a heading", "code"])
+    assert d["code_blocks"] == [{"lang": "py", "start_line": 2, "end_line": 4}]
+    assert [h["text"] for h in d["headings"]] == ["A"]
+
+
+def test_shorter_fence_does_not_close_longer_one():
+    d = scan_markdown(["````", "```", "# inside", "````", "# out"])
+    assert d["code_blocks"] == [{"lang": None, "start_line": 1, "end_line": 4}]
+    assert [h["text"] for h in d["headings"]] == ["out"]
+
+
+def test_import_trailing_period_stripped():
+    assert scan_markdown(["read @docs/a.md."])["imports"] == [{"target": "docs/a.md", "line": 1}]
+
+
+def test_node_shebang_is_javascript():
+    assert parse_hook_script("#!/usr/bin/env node\n", ".claude/hooks/check", [])["language"] == "javascript"
+    assert parse_hook_script("#!/bin/bash\n", ".claude/hooks/check", [])["language"] == "shell"
+
+
+PARSERS = {"CLAUDE.md": parse_claude_md, "SKILL.md": parse_skill, "agents": parse_agent,
+           "commands": parse_command, "hooks": parse_hook_script}
+
+
+def _parser_for(path):
+    name = path.rsplit("/", 1)[-1]
+    if name in ("CLAUDE.md", "SKILL.md"):
+        return PARSERS[name]
+    for key in ("agents", "commands", "hooks"):
+        if f"/{key}/" in path:
+            return PARSERS[key]
+    return None
+
+
+def _cases():
+    out = []
+    for f in fixture_files(FIXTURES):
+        if _parser_for(f.path):
+            out.append((f.repo, f.path))
+    return out
+
+
+@pytest.mark.parametrize("repo,path", _cases())
+def test_every_fixture_output_is_json_serialisable(repo, path):
+    text = fixture_text(repo, path)
+    try:
+        d = _parser_for(path)(text, path, [path])
+    except ParseError as e:
+        d = e.partial
+    assert d
+    json.dumps(d)
