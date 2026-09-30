@@ -14,7 +14,7 @@ LAUNCHERS = {"npx", "uvx", "bunx", "pnpx"}
 def _load(text: str) -> dict:
     try:
         obj = json.loads(text)
-    except (json.JSONDecodeError, RecursionError):
+    except (ValueError, RecursionError):
         raise ParseError("json_invalid", {"bytes": len(text.encode())}) from None
     if not isinstance(obj, dict):
         raise ParseError("not_object", {"bytes": len(text.encode())})
@@ -57,7 +57,7 @@ def parse_settings(text: str, path: str, siblings: list[str]) -> dict:
                 if not isinstance(h, dict):
                     continue
                 cmd = _str(h.get("command"))
-                line = line_of(text, json.dumps(cmd)[1:-1]) if cmd else None
+                line = line_of(text, json.dumps(cmd, ensure_ascii=False)[1:-1]) if cmd else None
                 hooks.append({"event": event, "matcher": _str(g.get("matcher")), "type": _str(h.get("type")),
                               "command": cmd, "line": line or line_of(text, f'"{event}"')})
     sandbox = obj.get("sandbox")
@@ -95,7 +95,7 @@ def parse_mcp(text: str, path: str, siblings: list[str]) -> dict:
             "package": next((a for a in args if not a.startswith("-")), None) if exe in LAUNCHERS else None,
             "url_host": _host(url) if url else None,
             "env_keys": sorted(s["env"]) if isinstance(s.get("env"), dict) else [],
-            "line": line_of(text, json.dumps(name)),
+            "line": line_of(text, json.dumps(name, ensure_ascii=False)),
         })
     return {"servers": servers}
 

@@ -76,3 +76,10 @@ def test_malformed_shapes_raise_only_parse_error_classes():
     bad_url = '{"mcpServers": {"x": {"url": "http://[bad"}, "y": 5}}'
     d, err = parse("mcp", bad_url, ".mcp.json", [])
     assert err is None and d["servers"][0]["url_host"] is None and len(d["servers"]) == 1
+    assert parse("settings", '{"a": ' + "1" * 5000 + "}", SETTINGS, [])[1] == "json_invalid"
+
+
+def test_non_ascii_hook_command_line_number():
+    text = '{\n  "hooks": {"Stop": [{"hooks": [\n    {"type": "command", "command": "echo \\"héllo\\""}\n  ]}]}\n}\n'
+    d, err = parse("settings", text, SETTINGS, [])
+    assert err is None and d["hooks"][0]["command"] == 'echo "héllo"' and d["hooks"][0]["line"] == 3

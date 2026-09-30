@@ -18,3 +18,4 @@ def test_s3_parses_every_fetched_harness_file(fctx):
     mcp = next(a for a in arts if a["repo"] == "epsilon/infra" and a["kind"] == "mcp")
     assert "Zq8Xv2Lm9Pw4Rt7Ky3Nb" not in mcp["parsed_json"]
     assert s3_parse.run(fctx, Opts()).units_run == 0
+    assert len(fctx.tables.read("artifacts")) == 21
