@@ -1,0 +1,241 @@
+{
+  "artifacts_total": 21,
+  "component_share": [
+    {
+      "harnesses": 1,
+      "kind": "agent",
+      "share": 0.125
+    },
+    {
+      "harnesses": 5,
+      "kind": "claude_md",
+      "share": 0.625
+    },
+    {
+      "harnesses": 2,
+      "kind": "command",
+      "share": 0.25
+    },
+    {
+      "harnesses": 1,
+      "kind": "hook",
+      "share": 0.125
+    },
+    {
+      "harnesses": 2,
+      "kind": "mcp",
+      "share": 0.25
+    },
+    {
+      "harnesses": 1,
+      "kind": "plugin",
+      "share": 0.125
+    },
+    {
+      "harnesses": 3,
+      "kind": "settings",
+      "share": 0.375
+    },
+    {
+      "harnesses": 1,
+      "kind": "settings_local",
+      "share": 0.125
+    },
+    {
+      "harnesses": 4,
+      "kind": "skill",
+      "share": 0.5
+    }
+  ],
+  "copy_rate": 0.09523809523809523,
+  "distinct_artifacts": 19,
+  "harnesses_total": 8,
+  "harnesses_without_forks": 7,
+  "technique_prevalence": [
+    {
+      "harnesses": 1,
+      "share": 0.125,
+      "technique_id": "agent_model_routing"
+    },
+    {
+      "harnesses": 1,
+      "share": 0.125,
+      "technique_id": "agent_restricted_tools"
+    },
+    {
+      "harnesses": 2,
+      "share": 0.25,
+      "technique_id": "claude_md_imports"
+    },
+    {
+      "harnesses": 1,
+      "share": 0.125,
+      "technique_id": "claude_md_nested"
+    },
+    {
+      "harnesses": 2,
+      "share": 0.25,
+      "technique_id": "command_arguments"
+    },
+    {
+      "harnesses": 1,
+      "share": 0.125,
+      "technique_id": "hook_posttooluse_formatter"
+    },
+    {
+      "harnesses": 1,
+      "share": 0.125,
+      "technique_id": "hook_pretooluse_guard"
+    },
+    {
+      "harnesses": 1,
+      "share": 0.125,
+      "technique_id": "hook_sessionstart_context"
+    },
+    {
+      "harnesses": 1,
+      "share": 0.125,
+      "technique_id": "hook_stop_gate"
+    },
+    {
+      "harnesses": 1,
+      "share": 0.125,
+      "technique_id": "mcp_composition"
+    },
+    {
+      "harnesses": 1,
+      "share": 0.125,
+      "technique_id": "permissions_bypass"
+    },
+    {
+      "harnesses": 1,
+      "share": 0.125,
+      "technique_id": "permissions_deny"
+    },
+    {
+      "harnesses": 1,
+      "share": 0.125,
+      "technique_id": "permissions_sandbox"
+    },
+    {
+      "harnesses": 1,
+      "share": 0.125,
+      "technique_id": "plugin_manifest"
+    },
+    {
+      "harnesses": 1,
+      "share": 0.125,
+      "technique_id": "skill_references"
+    },
+    {
+      "harnesses": 1,
+      "share": 0.125,
+      "technique_id": "skill_scripts"
+    }
+  ],
+  "use_case_sizes": [
+    {
+      "harnesses": 2,
+      "use_case_id": "uc-2fcbf77a13"
+    },
+    {
+      "harnesses": 2,
+      "use_case_id": "uc-566a243740"
+    },
+    {
+      "harnesses": 3,
+      "use_case_id": "uc-af9c157a3e"
+    },
+    {
+      "harnesses": 1,
+      "use_case_id": "uc-bb0d1f2701"
+    }
+  ],
+  "use_case_techniques": [
+    {
+      "harnesses": 1,
+      "technique_id": "permissions_bypass",
+      "use_case_id": "uc-2fcbf77a13"
+    },
+    {
+      "harnesses": 1,
+      "technique_id": "skill_references",
+      "use_case_id": "uc-2fcbf77a13"
+    },
+    {
+      "harnesses": 1,
+      "technique_id": "skill_scripts",
+      "use_case_id": "uc-2fcbf77a13"
+    },
+    {
+      "harnesses": 1,
+      "technique_id": "agent_model_routing",
+      "use_case_id": "uc-566a243740"
+    },
+    {
+      "harnesses": 1,
+      "technique_id": "agent_restricted_tools",
+      "use_case_id": "uc-566a243740"
+    },
+    {
+      "harnesses": 2,
+      "technique_id": "claude_md_imports",
+      "use_case_id": "uc-566a243740"
+    },
+    {
+      "harnesses": 1,
+      "technique_id": "claude_md_nested",
+      "use_case_id": "uc-566a243740"
+    },
+    {
+      "harnesses": 1,
+      "technique_id": "command_arguments",
+      "use_case_id": "uc-566a243740"
+    },
+    {
+      "harnesses": 1,
+      "technique_id": "hook_posttooluse_formatter",
+      "use_case_id": "uc-566a243740"
+    },
+    {
+      "harnesses": 1,
+      "technique_id": "hook_stop_gate",
+      "use_case_id": "uc-566a243740"
+    },
+    {
+      "harnesses": 1,
+      "technique_id": "mcp_composition",
+      "use_case_id": "uc-566a243740"
+    },
+    {
+      "harnesses": 1,
+      "technique_id": "permissions_deny",
+      "use_case_id": "uc-566a243740"
+    },
+    {
+      "harnesses": 1,
+      "technique_id": "command_arguments",
+      "use_case_id": "uc-af9c157a3e"
+    },
+    {
+      "harnesses": 1,
+      "technique_id": "hook_pretooluse_guard",
+      "use_case_id": "uc-af9c157a3e"
+    },
+    {
+      "harnesses": 1,
+      "technique_id": "hook_sessionstart_context",
+      "use_case_id": "uc-af9c157a3e"
+    },
+    {
+      "harnesses": 1,
+      "technique_id": "permissions_sandbox",
+      "use_case_id": "uc-af9c157a3e"
+    },
+    {
+      "harnesses": 1,
+      "technique_id": "plugin_manifest",
+      "use_case_id": "uc-af9c157a3e"
+    }
+  ]
+}

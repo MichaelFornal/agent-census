@@ -109,6 +109,14 @@ def run(ctx: Ctx, opts: Opts) -> RunStats:
             drift.append("edition_hash")
         if drift:
             raise SystemExit(f"facts --check failed; drift in {drift}")
+        site = ctx.site_data / "facts.json"
+        if site.exists():
+            copy = json.loads(site.read_text())
+            stale = (copy.get("edition_hash") != manifest["edition_hash"]
+                     or set(copy.get("facts", {})) != set(old["facts"])
+                     or any(not same(copy["facts"][k].get("value"), old["facts"][k]["value"]) for k in old["facts"]))
+            if stale:
+                raise SystemExit(f"site facts.json is stale ({site}); run census run s9")
         print(f"facts --check: {len(values)} facts match edition {manifest['edition_hash'][:12]}")
         return RunStats("s8", units_total=len(values), units_skipped=len(values))
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())

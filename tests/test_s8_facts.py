@@ -49,6 +49,26 @@ def test_check_detects_value_drift_and_data_drift(fctx):
         s8.run(fctx, Opts(check=True))
 
 
+def test_check_compares_the_site_copy_of_facts(fctx):
+    frozen(fctx)
+    s8.run(fctx, Opts())
+    s8.run(fctx, Opts(check=True))  # no site copy yet: nothing to compare
+    fctx.site_data.mkdir(parents=True)
+    site = fctx.site_data / "facts.json"
+    site.write_text(facts_path("test").read_text())
+    s8.run(fctx, Opts(check=True))
+    doc = json.loads(site.read_text())
+    doc["facts"]["harnesses_total"]["value"] = 9
+    site.write_text(json.dumps(doc))
+    with pytest.raises(SystemExit, match="site facts.json is stale.*run census run s9"):
+        s8.run(fctx, Opts(check=True))
+    doc["facts"]["harnesses_total"]["value"] = 8
+    doc["edition_hash"] = "0" * 64
+    site.write_text(json.dumps(doc))
+    with pytest.raises(SystemExit, match="site facts.json is stale"):
+        s8.run(fctx, Opts(check=True))
+
+
 def test_canary_repos_are_excluded(fctx):
     run_until(fctx, "s7")
     fctx.tables.write_part("repos", "p-canary", [{"repo": "canary/x", "missing": False, "canary": True,

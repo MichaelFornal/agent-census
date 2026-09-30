@@ -6,6 +6,7 @@ from helpers import FIXTURES
 
 from pipeline.cli import main
 from pipeline.context import make_ctx
+from pipeline.s8_facts import same
 from pipeline.schemas import SCHEMAS
 
 SECRET = "Zq8Xv2Lm9Pw4Rt7Ky3Nb"
@@ -31,7 +32,11 @@ def test_fixture_edition_end_to_end(tmp_path, isolated_data):
     facts = json.loads(facts_file.read_text())["facts"]
     assert facts["harnesses_total"]["value"] == 8
     assert facts["distinct_artifacts"]["value"] < facts["artifacts_total"]["value"]
-    assert main(["facts", "--check", "--edition", "fixture"]) == 0
+    expected = json.loads((FIXTURES.parent / "expected_facts.json").read_text())
+    assert set(facts) == set(expected)
+    for k, want in expected.items():
+        assert same(facts[k]["value"], want), k  # floats compare with isclose
+    assert main(["facts", "--check", "--edition", "fixture", "--site-data", str(site)]) == 0
 
     before = journals(isolated_data)
     assert {f"s{i}.jsonl" for i in range(1, 8)} <= set(before)

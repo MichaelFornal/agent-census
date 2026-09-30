@@ -79,6 +79,7 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_parser("labels", parents=[common])
     f = sub.add_parser("facts", parents=[common])
     f.add_argument("--check", action="store_true")
+    f.add_argument("--site-data", type=Path, help="with --check, where the site's copy of facts.json lives")
     return ap
 
 
@@ -109,6 +110,8 @@ def main(argv: list[str] | None = None) -> int:
         from pipeline.editorial import export_drafts
         print(f"wrote {export_drafts(ctx)}")
     elif args.cmd == "facts":
+        if args.site_data:
+            ctx.site_data = args.site_data
         return 2 if run_stage("s8", ctx, Opts(check=args.check)).stopped else 0
     return 0
 
