@@ -91,3 +91,62 @@ def test_fixture_mode_emits_hits_for_every_parsed_harness_file(fctx):
     assert len(hits) == 21  # every fixture file except the two skill_file resources
     assert {h["repo"] for h in hits if h["is_fork"]} == {"delta/skills-fork"}
     assert s1.run(fctx, Opts()).units_skipped == 1
+
+
+def test_slice_mode_makes_no_count_requests_after_target(ctx, monkeypatch):
+    pulled = []
+    real_walk = s1.walk
+
+    def spy_walk(*a, **kw):
+        for n in real_walk(*a, **kw):
+            pulled.append(n.query)
+            yield n
+
+    monkeypatch.setattr(s1, "walk", spy_walk)
+    monkeypatch.setattr(s1, "SearchClient", FakeSearch)
+    monkeypatch.setattr(s1, "github_token", lambda: "t")
+    s1.run(ctx, Opts(limit=4))
+    assert len(pulled) == 4  # one leaf per seed, no further node pulled
+    pulled.clear()
+    s1.run(ctx, Opts(limit=4))
+    assert pulled == []
+
+
+class PageSearch:
+    def __init__(self, items_for_page):
+        self.items_for_page, self.pages = items_for_page, []
+
+    def search(self, q, page=1, per_page=100):
+        assert per_page == 100
+        self.pages.append(page)
+        return {"total_count": 0, "incomplete_results": False, "items": self.items_for_page(page)}
+
+
+def _items(n, offset=0):
+    return [{"repo": f"o/r{offset + i}", "fork": False, "path": "CLAUDE.md", "sha": "s"} for i in range(n)]
+
+
+def test_fetch_node_capped_requests_ten_pages():
+    c = PageSearch(lambda p: _items(100, p * 100))
+    rows = s1.fetch_node(c, "claude_md", s1.Node("q", 2500, "capped"))
+    assert c.pages == list(range(1, 11))
+    assert len(rows) == 1000
+
+
+def test_fetch_node_stops_on_short_page():
+    c = PageSearch(lambda p: _items(100, p * 100) if p == 1 else _items(40, 100))
+    s1.fetch_node(c, "claude_md", s1.Node("q", 250, "leaf"))
+    assert c.pages == [1, 2]
+
+
+def test_fetch_node_150_issues_two_pages():
+    c = PageSearch(lambda p: _items(100) if p == 1 else _items(50, 100))
+    rows = s1.fetch_node(c, "claude_md", s1.Node("q", 150, "leaf"))
+    assert c.pages == [1, 2]
+    assert len(rows) == 150
+
+
+def test_fetch_node_dedupes_repo_path_across_pages():
+    c = PageSearch(lambda p: _items(100) if p == 1 else _items(50))
+    rows = s1.fetch_node(c, "claude_md", s1.Node("q", 150, "leaf"))
+    assert len(rows) == 100

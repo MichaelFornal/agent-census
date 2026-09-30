@@ -120,16 +120,24 @@ def run(ctx: Ctx, opts: Opts) -> RunStats:
         return _run_fixtures(ctx)
     client = SearchClient(github_token(), ctx.root / "search_cache.jsonl")
 
+    incomplete = 0
+
     def count(q: str) -> int:
-        return client.search(q, per_page=1)["total_count"]
+        nonlocal incomplete
+        body = client.search(q, per_page=1)
+        if body.get("incomplete_results"):
+            incomplete += 1
+        return body["total_count"]
 
     have = _repos_by_seed(ctx)
-    target = math.ceil(opts.limit / len(SEEDS)) if opts.limit else None
+    target = math.ceil(opts.limit / len(SEEDS)) if opts.limit is not None else None
     total = RunStats("s1")
     for seed, q in SEEDS.items():
         rng = random.Random(f"{VERSION}:{seed}")
-        for node in walk(f"{q} {FORK}", count, rng, FLOOR_SPLITS[seed]):
-            if target is not None and len(have[seed]) >= target:
+        nodes = walk(f"{q} {FORK}", count, rng, FLOOR_SPLITS[seed])
+        while target is None or len(have[seed]) < target:
+            node = next(nodes, None)  # pulling a node issues count requests, so check the target first
+            if node is None:
                 break
             got: list[str] = []
 
@@ -141,5 +149,5 @@ def run(ctx: Ctx, opts: Opts) -> RunStats:
             unit = Unit(unit_key("s1", VERSION, node.query, node.kind), (seed, node))
             merge_stats(total, run_batched(ctx, "s1", [unit], work, batch_size=1, log=lambda m: None))
             have[seed].update(got)
-        print(f"s1 {seed}: {len(have[seed])} repos; search {client.stats}", flush=True)
+        print(f"s1 {seed}: {len(have[seed])} repos; search {client.stats}; incomplete counts {incomplete}", flush=True)
     return total
