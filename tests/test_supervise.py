@@ -1,4 +1,7 @@
+import json
 import os
+import re
+import signal
 
 import pytest
 
@@ -17,6 +20,9 @@ class FakeChild:
 
     def wait(self):
         return self.code
+
+    def terminate(self):
+        self.terminated = True
 
 
 def script(ctx, outcomes):
@@ -57,6 +63,62 @@ def test_backoff_doubles_without_progress_and_resets_with_it(ctx):
     sleeps = []
     sup.supervise(ctx, "s1", [], spawn=spawn, sleep=sleeps.append, min_backoff=1.0, max_backoff=3.0)
     assert sleeps == [2.0, 3.0, 3.0, 1.0, 2.0]
+
+
+def state_of(ctx, stage="s1"):
+    return json.loads((ctx.root / "logs" / f"supervise-{stage}.state.json").read_text())
+
+
+def test_state_file_counts_restarts_and_restarts_without_progress(ctx):
+    seen = []
+    spawn, _ = script(ctx, [(1, 0), (1, 1), (1, 0), (1, 0), (0, 0)])
+
+    def spy(s):
+        seen.append(state_of(ctx))
+
+    sup.supervise(ctx, "s1", [], spawn=spawn, sleep=spy, min_backoff=1.0, max_backoff=8.0)
+    assert [(s["restarts"], s["no_progress"], s["last_exit"], s["backoff_s"]) for s in seen] == [
+        (1, 1, 1, 2.0), (2, 0, 1, 1.0), (3, 1, 1, 2.0), (4, 2, 1, 4.0)]
+    assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", seen[0]["last_at"])
+    final = state_of(ctx)
+    assert final["complete"] is True and final["restarts"] == 4 and final["last_exit"] == 0
+
+
+def test_sigterm_terminates_the_child_and_the_supervisor_returns_143(ctx):
+    children = []
+    before = signal.getsignal(signal.SIGTERM)
+
+    class Child(FakeChild):
+        terminated = False
+
+        def terminate(self):
+            self.terminated = True
+
+        def wait(self):
+            signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)  # SIGTERM arrives while the child runs
+            return -15
+
+    def spawn(cmd, stdout=None, stderr=None):
+        children.append(Child(0))
+        return children[-1]
+
+    sleeps = []
+    assert sup.supervise(ctx, "s1", [], spawn=spawn, sleep=sleeps.append, min_backoff=1.0) == 143
+    assert len(children) == 1 and children[0].terminated and sleeps == []
+    assert not (ctx.root / "logs" / "supervise-s1.pid").exists()
+    assert signal.getsignal(signal.SIGTERM) == before
+
+
+def test_sigterm_during_the_backoff_sleep_returns_143_at_once(ctx):
+    spawn, commands = script(ctx, [(1, 0), (0, 0)])
+
+    def sleep(s):
+        signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
+        raise AssertionError("the supervisor kept sleeping after SIGTERM")
+
+    assert sup.supervise(ctx, "s1", [], spawn=spawn, sleep=sleep, min_backoff=1.0) == 143
+    assert len(commands) == 1
+    assert not (ctx.root / "logs" / "supervise-s1.pid").exists()
 
 
 def test_refuses_when_another_supervisor_is_alive(ctx):

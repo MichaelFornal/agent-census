@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,21 @@ def test_status_lists_journaled_stages(ctx, capsys):
     out = capsys.readouterr().out
     assert "s1: units=1 parts=1 repo_hits=1 s1_overflows=0" in out
     assert "s2: not started" in out
+
+
+def test_status_reports_a_stuck_or_finished_supervisor(ctx, capsys):
+    logs = ctx.root / "logs"
+    logs.mkdir(parents=True)
+    (logs / "supervise-s2.state.json").write_text(json.dumps(
+        {"restarts": 7, "no_progress": 3, "last_exit": 1, "last_at": "2026-10-02T03:04:05Z", "backoff_s": 480.0}))
+    (logs / "supervise-s1.state.json").write_text(json.dumps(
+        {"complete": True, "restarts": 2, "no_progress": 0, "last_exit": 0, "last_at": "2026-10-01T00:00:00Z",
+         "backoff_s": 0.0}))
+    cli.main(["status", "--edition", "test"])
+    out = capsys.readouterr().out
+    assert "s2 supervisor: 7 restarts, 3 in a row without progress, last exit 1 at 2026-10-02T03:04:05Z" in out
+    assert "s1 supervisor: complete" in out
+    assert "s3 supervisor" not in out
 
 
 def test_fixtures_default_to_offline_models(monkeypatch):

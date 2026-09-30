@@ -9,6 +9,7 @@ from pathlib import Path
 from pipeline.context import Ctx, Opts, make_ctx
 from pipeline.paths import DEFAULT_EDITION
 from pipeline.runner import STAGE_TABLES, RunStats, read_state, reset
+from pipeline.supervise import read_supervisor_state
 
 PIPELINE = ["s1", "s2", "s3", "s4", "s5", "s6", "s7"]
 MODULES = {
@@ -63,6 +64,13 @@ def status(ctx: Ctx) -> None:
         print(f"{stage}: units={len(done)} parts={len(entries)} "
               + " ".join(f"{t}={rows[t]}" for t in STAGE_TABLES[stage])
               + (f" deferred={deferred}" if deferred else ""))
+    for stage in PIPELINE:
+        sv = read_supervisor_state(ctx, stage)
+        if sv.get("complete"):
+            print(f"{stage} supervisor: complete")
+        elif sv:
+            print(f"{stage} supervisor: {sv['restarts']} restarts, {sv['no_progress']} in a row without progress, "
+                  f"last exit {sv['last_exit']} at {sv['last_at']}")
     s1 = read_state(ctx, "s1")
     if s1:
         print(f"s1 families done: {', '.join(s1.get('families_done', [])) or 'none'}; "
