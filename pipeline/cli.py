@@ -25,6 +25,8 @@ def run_stage(name: str, ctx: Ctx, opts: Opts) -> RunStats:
     stats = _stage_run(name)(ctx, opts)
     line = (f"{stats.stage}: ran {stats.units_run}, skipped {stats.units_skipped} of {stats.units_total} units; "
             f"rows {dict(sorted(stats.rows.items()))}")
+    if stats.units_deferred or stats.units_gave_up:
+        line += f"; deferred {stats.units_deferred}, gave up {stats.units_gave_up}"
     print(line + (f"; stopped: {stats.stopped}" if stats.stopped else ""), flush=True)
     return stats
 

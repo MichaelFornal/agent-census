@@ -34,3 +34,25 @@ class Journal:
 
     def clear(self) -> None:
         self.path.unlink(missing_ok=True)
+
+
+class Attempts:
+    """Transient failures per unit, one JSONL line per failed attempt. A unit that keeps failing is
+    journaled as a terminal failure after runner.MAX_ATTEMPTS instead of being retried forever."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+
+    def counts(self) -> dict[str, int]:
+        out: dict[str, int] = {}
+        for e in read_jsonl(self.path):
+            if "unit" in e:
+                out[e["unit"]] = out.get(e["unit"], 0) + 1
+        return out
+
+    def record(self, unit: str, error: str) -> None:
+        append_jsonl(self.path, {"unit": unit, "error": error,
+                                 "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+
+    def clear(self) -> None:
+        self.path.unlink(missing_ok=True)

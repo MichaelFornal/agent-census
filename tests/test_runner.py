@@ -1,6 +1,11 @@
+import subprocess
+import sys
+
 import pytest
 
-from pipeline.runner import StopStage, Unit, run_batched, run_whole
+from pipeline.context import make_ctx
+from pipeline.runner import (MAX_ATTEMPTS, Partial, StageSession, StopStage, Unit, read_state, reset, run_batched,
+                             run_whole, write_state)
 
 
 def hits(batch):
@@ -125,3 +130,104 @@ def test_kill_inside_reset_is_recovered(ctx):
     run_whole(ctx, "s1", "fp1", work, log=quiet)
     assert len(n) == 2
     assert len(ctx.tables.read("repo_hits")) == 2
+
+
+def flaky(fail_keys):
+    def work(batch):
+        bad = {u.key: "boom" for u in batch if u.key in fail_keys}
+        return Partial(hits([u for u in batch if u.key not in bad]), bad)
+    return work
+
+
+def lost(u, err):
+    return {"s1_overflows": [{"seed": err, "query": u.key, "total": 0, "reachable": 0}]}
+
+
+def test_deferred_unit_is_not_journaled_and_runs_again(ctx):
+    stats = run_batched(ctx, "s1", units(4), flaky({"k1"}), batch_size=2, log=quiet, give_up=lost)
+    assert (stats.units_run, stats.units_deferred) == (3, 1)
+    assert stats.stopped == "1 units deferred after transient failures; rerun to retry"
+    assert "k1" not in ctx.journal("s1").done_units()
+    assert ctx.attempts("s1").counts() == {"k1": 1}
+    again = run_batched(ctx, "s1", units(4), hits, batch_size=2, log=quiet, give_up=lost)
+    assert (again.units_run, again.units_skipped, again.stopped) == (1, 3, None)
+    assert sorted(r["repo"] for r in ctx.tables.read("repo_hits")) == [f"o/r{i}" for i in range(4)]
+
+
+def test_unit_is_given_up_after_max_attempts(ctx):
+    for n in range(1, MAX_ATTEMPTS):
+        stats = run_batched(ctx, "s1", units(2), flaky({"k1"}), batch_size=2, log=quiet, give_up=lost)
+        assert stats.units_deferred == 1 and ctx.attempts("s1").counts() == {"k1": n}
+    stats = run_batched(ctx, "s1", units(2), flaky({"k1"}), batch_size=2, log=quiet, give_up=lost)
+    assert (stats.units_gave_up, stats.units_deferred, stats.stopped) == (1, 0, None)
+    assert [(o["seed"], o["query"]) for o in ctx.tables.read("s1_overflows")] == [("boom", "k1")]
+    assert run_batched(ctx, "s1", units(2), flaky({"k1"}), batch_size=2, log=quiet, give_up=lost).units_run == 0
+
+
+def test_batch_with_every_unit_deferred_commits_nothing(ctx):
+    stats = run_batched(ctx, "s1", units(2), flaky({"k0", "k1"}), batch_size=2, log=quiet, give_up=lost)
+    assert (stats.units_run, stats.units_deferred) == (0, 2)
+    assert ctx.journal("s1").entries() == [] and ctx.tables.parts("repo_hits") == set()
+
+
+def test_deferring_without_give_up_is_an_error(ctx):
+    with pytest.raises(ValueError, match="give_up"):
+        run_batched(ctx, "s1", units(1), flaky({"k0"}), batch_size=1, log=quiet)
+
+
+def test_deferring_a_unit_outside_the_batch_is_an_error(ctx):
+    with pytest.raises(ValueError, match="not in the batch"):
+        run_batched(ctx, "s1", units(1), lambda b: Partial({}, {"nope": "x"}), batch_size=1, log=quiet, give_up=lost)
+
+
+def test_stop_raised_by_give_up_stops_the_stage(ctx):
+    def refuse(u, err):
+        raise StopStage("outage")
+
+    for _ in range(MAX_ATTEMPTS - 1):
+        run_batched(ctx, "s1", units(1), flaky({"k0"}), batch_size=1, log=quiet, give_up=refuse)
+    stats = run_batched(ctx, "s1", units(1), flaky({"k0"}), batch_size=1, log=quiet, give_up=refuse)
+    assert stats.stopped == "outage" and ctx.journal("s1").entries() == []
+
+
+def test_session_reads_the_journal_once_for_many_batches(ctx, monkeypatch):
+    from pipeline.journal import Journal
+
+    reads = []
+    real = Journal.done_units
+    monkeypatch.setattr(Journal, "done_units", lambda self: reads.append(1) or real(self))
+    session = StageSession(ctx, "s1")
+    for u in units(5):
+        run_batched(ctx, "s1", [u], hits, batch_size=1, log=quiet, session=session)
+    assert len(reads) == 1 and session.done == {f"k{i}" for i in range(5)}
+    assert run_batched(ctx, "s1", units(5), hits, batch_size=1, log=quiet, session=session).units_run == 0
+
+
+HOLDER = """
+import time
+from pipeline.context import make_ctx
+from pipeline.runner import StageSession
+StageSession(make_ctx("lock"), "s1")
+print("held", flush=True)
+time.sleep(60)
+"""
+
+
+def test_second_process_cannot_run_the_same_stage(isolated_data):
+    proc = subprocess.Popen([sys.executable, "-c", HOLDER], stdout=subprocess.PIPE, text=True)
+    try:
+        assert proc.stdout.readline().strip() == "held"
+        with pytest.raises(SystemExit, match="another process"):
+            StageSession(make_ctx("lock"), "s1")
+    finally:
+        proc.kill()
+        proc.wait()
+    StageSession(make_ctx("lock"), "s1")  # the kernel dropped the lock when the holder died
+
+
+def test_reset_clears_attempts_and_state(ctx):
+    run_batched(ctx, "s1", units(1), flaky({"k0"}), batch_size=1, log=quiet, give_up=lost)
+    write_state(ctx, "s1", {"complete": True})
+    assert read_state(ctx, "s1") == {"complete": True}
+    reset(ctx, "s1")
+    assert ctx.attempts("s1").counts() == {} and read_state(ctx, "s1") == {}

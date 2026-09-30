@@ -2,7 +2,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from pipeline.journal import Journal
+from pipeline.journal import Attempts, Journal
 from pipeline.paths import DEFAULT_EDITION, REPO_ROOT, blob_root, edition_dir
 from pipeline.store import BlobStore, Tables
 
@@ -27,6 +27,12 @@ class Ctx:
 
     def journal(self, stage: str) -> Journal:
         return Journal(self.root / "journal" / f"{stage}.jsonl")
+
+    def attempts(self, stage: str) -> Attempts:
+        return Attempts(self.root / "journal" / f"{stage}.attempts.jsonl")
+
+    def state_path(self, stage: str) -> Path:
+        return self.root / "journal" / f"{stage}.state.json"
 
 
 def make_ctx(edition: str = DEFAULT_EDITION, **kw) -> Ctx:
