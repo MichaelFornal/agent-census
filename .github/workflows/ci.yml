@@ -1,0 +1,29 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  pipeline-and-site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install (no embedding extra; CI uses the hash embedder)
+        run: uv sync --frozen
+      - name: Unit, stage and end-to-end tests
+        run: uv run pytest -q
+      - name: Build the fixture edition
+        run: uv run census run all --edition fixture --fixtures tests/fixtures/harnesses
+      - name: facts --check on the frozen fixture edition
+        run: uv run census facts --check --edition fixture
+      - name: No hard-coded digits in page copy
+        run: uv run python -m pipeline.checks.digits site/src
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Build the site
+        working-directory: site
+        run: npm ci && npm run build
