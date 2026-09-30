@@ -1,0 +1,58 @@
+{
+  "uc-1670919a73": {
+    "draft_label": "Unity C# game development references",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-4f734de77d",
+    "size": 34,
+    "status": "draft"
+  },
+  "uc-4f734de77d": {
+    "draft_label": "Unity MCP CLI tool docs",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 135,
+    "status": "approved"
+  },
+  "uc-8fa10b7b8a": {
+    "draft_label": "1C Enterprise metadata XML tooling",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-e87b4b4352",
+    "size": 43,
+    "status": "draft"
+  },
+  "uc-c2bc544e5e": {
+    "draft_label": "Unity MCP CLI tool docs",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-4f734de77d",
+    "size": 97,
+    "status": "draft"
+  },
+  "uc-cd7b6201a2": {
+    "draft_label": "1C configuration PowerShell tooling",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-e87b4b4352",
+    "size": 46,
+    "status": "draft"
+  },
+  "uc-e1a6fda600": {
+    "draft_label": "Software Engineering Workflow Skills",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 8208,
+    "status": "approved"
+  },
+  "uc-e87b4b4352": {
+    "draft_label": "1C Enterprise and AL tooling skills",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 118,
+    "status": "draft"
+  }
+}
