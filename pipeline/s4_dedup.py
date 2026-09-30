@@ -167,7 +167,10 @@ def dedup(docs: list[Doc]) -> dict[str, list[dict]]:
 def run(ctx: Ctx, opts: Opts) -> RunStats:
     arts = ctx.tables.read("artifacts")
     created = {r["repo"]: r["created_at"] for r in ctx.tables.read("repos")}
-    fp = unit_key(VERSION, THRESHOLD, sorted((a["artifact_id"], a["blob_sha"]) for a in arts))
+    fp = unit_key(VERSION, THRESHOLD,
+                  sorted((a["artifact_id"], a["blob_sha"], hashlib.sha256(a["parsed_json"].encode()).hexdigest())
+                         for a in arts),
+                  sorted((r, created.get(r)) for r in {a["repo"] for a in arts}))
 
     def work() -> dict[str, list[dict]]:
         docs = [Doc(a["artifact_id"], a["kind"], a["repo"], a["path"], a["blob_sha"], ctx.blobs.get(a["blob_sha"]),

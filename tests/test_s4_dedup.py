@@ -83,3 +83,33 @@ def test_s4_on_fixtures(fctx):
     fams = {m["family_key"] for m in fctx.tables.read("membership") if m["family_key"]}
     assert {"csv-cleaner", "reviewer", "chapter-outliner", "fix-issue", "release", "notes"} <= fams
     assert s4.run(fctx, Opts()).units_skipped == 1
+
+
+def test_s4_recomputes_when_parsed_json_or_created_at_changes(fctx):
+    run_until(fctx, "s4")
+    assert s4.run(fctx, Opts()).units_skipped == 1
+    arts = fctx.tables.read("artifacts")
+    arts[0] = {**arts[0], "parsed_json": '{"frontmatter": {"name": "changed"}}'}
+    fctx.tables.clear("artifacts")
+    fctx.tables.write_part("artifacts", "p-test", arts)
+    assert s4.run(fctx, Opts()).units_run == 1
+    assert s4.run(fctx, Opts()).units_skipped == 1
+    repos = fctx.tables.read("repos")
+    repos[0] = {**repos[0], "created_at": "1999-01-01T00:00:00Z"}
+    fctx.tables.clear("repos")
+    fctx.tables.write_part("repos", "p-test", repos)
+    assert s4.run(fctx, Opts()).units_run == 1
+
+
+def test_dedup_output_is_independent_of_input_order():
+    trimmed = " ".join(WORDS.split()[:55])
+    docs = [
+        doc(0, WORDS, "o/a"),
+        doc(1, WORDS, "o/b", created="2026-01-01T00:00:00Z"),
+        doc(2, "# Webapp\n\nRun the webapp tests before merging any change to the webapp.", "acme/webapp"),
+        doc(3, "# Shop\n\nRun the shop tests before merging any change to the shop.", "theta/shop",
+            created="2026-01-01T00:00:00Z"),
+        doc(4, trimmed, "o/c", created="2026-02-01T00:00:00Z"),
+        doc(5, WORDS, "o/d", kind="skill"),
+    ]
+    assert s4.dedup(docs) == s4.dedup(list(reversed(docs)))
