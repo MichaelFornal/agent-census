@@ -1,5 +1,6 @@
 import json
 import re
+from collections import namedtuple
 
 import httpx
 import pytest
@@ -55,6 +56,7 @@ class Hub:
         self.path_queries: list[str] = []
         self.blob_queries: list[str] = []
         self.tree_calls: list[str] = []
+        self.meta_sizes: list[int] = []
 
     def gql(self, req):
         q = json.loads(req.content)["query"]
@@ -65,6 +67,7 @@ class Hub:
             return httpx.Response(502, text="Bad Gateway")
         is_meta = "HEAD:.claude" in q
         if is_meta:
+            self.meta_sizes.append(len(names))
             bad = [self.fail_meta[n] for n in names if n in self.fail_meta]
             if bad:
                 return httpx.Response(bad[0], text="Bad Gateway")
@@ -443,3 +446,64 @@ def test_single_blob_502_defers_the_repo(ctx):
     out = harvest(ctx, hub, [unit("o/a")])
     assert out.deferred == {"k:o/a": "blob_fetch_error"}
     assert out.rows["repos"] == [] and out.rows["harness_files"] == []
+
+
+def two_repo_hub():
+    return Hub({"o/a": node(), "o/b": node()},
+               paths={("o/a", "CLAUDE.md"): "a" * 40, ("o/b", "CLAUDE.md"): "b" * 40},
+               texts={"a" * 40: "# a\n", "b" * 40: "# b\n"})
+
+
+def test_discovered_groups_nested_claude_md_paths_per_repo(ctx):
+    ctx.tables.write_part("repo_hits", "p-seed", [
+        {"repo": "o/a", "path": "CLAUDE.md", "component": "claude_md", "query_id": "q", "blob_sha": "s", "is_fork": False},
+        {"repo": "o/a", "path": "pkg/b/CLAUDE.md", "component": "claude_md", "query_id": "q", "blob_sha": "s", "is_fork": False},
+        {"repo": "o/a", "path": "pkg/a/CLAUDE.md", "component": "claude_md", "query_id": "q2", "blob_sha": "s", "is_fork": False},
+        {"repo": "o/a", "path": "pkg/a/CLAUDE.md", "component": "claude_md", "query_id": "q3", "blob_sha": "s", "is_fork": False},
+        {"repo": "o/a", "path": ".claude/CLAUDE.md", "component": "claude_md", "query_id": "q", "blob_sha": "s", "is_fork": False},
+        {"repo": "o/b", "path": ".claude/skills/x/SKILL.md", "component": "skill", "query_id": "q", "blob_sha": "s", "is_fork": False},
+    ])
+    assert sorted(s2.discovered(ctx)) == [("o/a", ["pkg/a/CLAUDE.md", "pkg/b/CLAUDE.md"]), ("o/b", [])]
+
+
+def test_full_mode_waits_for_the_claude_md_families(ctx, monkeypatch):
+    hub = two_repo_hub()
+    seed_hits(ctx, [("o/a", "CLAUDE.md"), ("o/b", "CLAUDE.md")])
+    write_state(ctx, "s1", {"families_done": ["claude_md/nonfork"], "complete": False})
+    wire(monkeypatch, hub)
+    stats = s2.run(ctx, Opts())
+    assert stats.stopped.startswith("waiting for S1") and hub.meta_sizes == []
+    assert s2.run(ctx, Opts(limit=1)).units_run == 1  # slice mode is not gated
+
+
+def test_full_mode_asks_for_a_rerun_while_s1_is_still_discovering(ctx, monkeypatch):
+    hub = two_repo_hub()
+    seed_hits(ctx, [("o/a", "CLAUDE.md"), ("o/b", "CLAUDE.md")])
+    write_state(ctx, "s1", {"families_done": ["claude_md/nonfork", "claude_md/fork"], "complete": False})
+    wire(monkeypatch, hub)
+    stats = s2.run(ctx, Opts())
+    assert stats.units_run == 2 and stats.stopped.startswith("S1 is still discovering")
+    write_state(ctx, "s1", {"families_done": ["claude_md/nonfork", "claude_md/fork"], "complete": True})
+    assert s2.run(ctx, Opts()).stopped is None
+
+
+def test_low_disk_stops_the_stage_before_any_request(ctx, monkeypatch):
+    hub = two_repo_hub()
+    seed_hits(ctx, [("o/a", "CLAUDE.md")])
+    wire(monkeypatch, hub)
+    usage = namedtuple("usage", "total used free")
+    monkeypatch.setattr(s2.shutil, "disk_usage", lambda p: usage(100 * 2**30, 99 * 2**30, 2**30))
+    stats = s2.run(ctx, Opts())
+    assert "GiB free" in stats.stopped and "CENSUS_BLOBS" in stats.stopped
+    assert hub.meta_sizes == [] and ctx.journal("s2").entries() == []
+    monkeypatch.setattr(s2.shutil, "disk_usage", lambda p: usage(100 * 2**30, 50 * 2**30, 50 * 2**30))
+    assert s2.run(ctx, Opts()).units_run == 1
+
+
+def test_census_blobs_moves_the_blob_store(tmp_path, monkeypatch):
+    from pipeline.context import make_ctx
+
+    monkeypatch.setenv("CENSUS_BLOBS", str(tmp_path / "elsewhere"))
+    ctx = make_ctx("test")
+    ctx.blobs.put("ab" * 20, "hello\n")
+    assert (tmp_path / "elsewhere" / "ab" / ("ab" * 20 + ".zst")).exists()

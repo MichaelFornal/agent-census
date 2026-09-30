@@ -8,6 +8,7 @@ again on later runs. After runner.MAX_ATTEMPTS the final pass records what is re
 not. When GitHub itself is failing (the health probe fails too), the stage stops instead.
 """
 import json
+import shutil
 from dataclasses import dataclass
 
 from pipeline.context import Ctx, Opts
@@ -15,7 +16,7 @@ from pipeline.fixtures import fixture_files, fixture_repos, git_blob_sha
 from pipeline.gh import GraphQLClient, RestClient, github_token
 from pipeline.journal import unit_key
 from pipeline.kinds import PARSED_KINDS, classify
-from pipeline.runner import Partial, RunStats, StopStage, Unit, run_batched, run_whole
+from pipeline.runner import Partial, RunStats, StopStage, Unit, read_state, run_batched, run_whole
 from pipeline.store import BlobStore
 
 VERSION = 2  # 2: the .claude tree comes from REST git trees (was GraphQL nested to depth 4); transients are deferred
@@ -25,6 +26,9 @@ MAX_EXTRA = 20  # nested CLAUDE.md paths looked up in the meta query; the rest g
 EXTRA_BATCH = 60
 MAX_FETCH_BYTES = 200_000
 BLOB_BATCH = 40
+MIN_FREE_BYTES = 5 * 2**30
+PROGRESS_EVERY = 40  # batches between client-stat lines (1,000 repos)
+CLAUDE_MD_FAMILIES = {"claude_md/nonfork", "claude_md/fork"}  # nested CLAUDE.md paths come only from these
 BLOB_BATCH_BYTES = 400_000
 REPO_FIELDS = ("nameWithOwner stargazerCount isFork isTemplate createdAt pushedAt "
                "primaryLanguage { name } licenseInfo { spdxId } defaultBranchRef { target { oid } }")
@@ -268,8 +272,28 @@ def _redaction_rows(ctx: Ctx, oids: list[str]) -> list[dict]:
     return rows
 
 
+def _check_disk(ctx: Ctx) -> None:
+    root = ctx.blobs.root
+    while not root.exists():
+        root = root.parent
+    free = shutil.disk_usage(root).free
+    if free < MIN_FREE_BYTES:
+        raise StopStage(f"only {free / 2**30:.1f} GiB free under {root}; free space or point CENSUS_BLOBS "
+                        "at a larger volume, then rerun")
+
+
+def discovered(ctx: Ctx) -> list[tuple[str, list[str]]]:
+    """Every discovered repo with its nested CLAUDE.md paths. In SQL: repo_hits has millions of rows."""
+    rows = ctx.tables.connect().execute("""
+        SELECT repo, list(DISTINCT path ORDER BY path) FILTER (
+                   WHERE component = 'claude_md' AND path <> 'CLAUDE.md' AND NOT starts_with(path, '.claude/'))
+        FROM repo_hits GROUP BY repo""").fetchall()
+    return [(repo, extra or []) for repo, extra in rows]
+
+
 def harvest_batch(ctx: Ctx, gql: GraphQLClient, rest: RestClient, units: list[Unit], final: bool = False) -> Partial:
     """final=True is the last attempt for these units: record what is reachable and why the rest is not."""
+    _check_disk(ctx)
     payloads = [u.payload for u in units]
     found, failed = fetch_meta(gql, payloads)
     more = [(repo, p) for repo, extra in payloads if repo in found and not found[repo].row["missing"]
@@ -367,16 +391,27 @@ def _run_fixtures(ctx: Ctx) -> RunStats:
 def run(ctx: Ctx, opts: Opts) -> RunStats:
     if ctx.fixtures:
         return _run_fixtures(ctx)
-    nested: dict[str, set[str]] = {}
-    for h in ctx.tables.read("repo_hits"):
-        extra = nested.setdefault(h["repo"], set())
-        if h["component"] == "claude_md" and h["path"] != "CLAUDE.md" and not h["path"].startswith(".claude/"):
-            extra.add(h["path"])
+    full = opts.limit is None
+    s1 = read_state(ctx, "s1")  # read before the units, so "complete" never describes fewer repos than we list
+    if full and not CLAUDE_MD_FAMILIES <= set(s1.get("families_done", [])):
+        return RunStats("s2", stopped="waiting for S1 to finish the claude_md families "
+                                      "(nested CLAUDE.md paths come from them)")
     # Ordered by unit key (a hash), so `--limit N` harvests a stable pseudo-random N of the discovered repos.
-    units = sorted((Unit(unit_key("s2", VERSION, repo), (repo, sorted(extra))) for repo, extra in nested.items()),
+    units = sorted((Unit(unit_key("s2", VERSION, repo), (repo, extra)) for repo, extra in discovered(ctx)),
                    key=lambda u: u.key)
     gql, rest = GraphQLClient(github_token()), RestClient(github_token())
-    stats = run_batched(ctx, "s2", units, lambda batch: harvest_batch(ctx, gql, rest, batch), BATCH, opts.limit,
+    batches = 0
+
+    def work(batch: list[Unit]) -> Partial:
+        nonlocal batches
+        batches += 1
+        if batches % PROGRESS_EVERY == 0:
+            print(f"s2 graphql: {gql.stats}; rest: {rest.stats}", flush=True)
+        return harvest_batch(ctx, gql, rest, batch)
+
+    stats = run_batched(ctx, "s2", units, work, BATCH, opts.limit,
                         give_up=lambda u, error: harvest_batch(ctx, gql, rest, [u], final=True).rows)
     print(f"s2 graphql: {gql.stats}; rest: {rest.stats}", flush=True)
+    if full and not stats.stopped and not s1.get("complete"):
+        stats.stopped = "S1 is still discovering repos; rerun S2 to harvest the rest"
     return stats

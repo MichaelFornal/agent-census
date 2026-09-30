@@ -15,7 +15,8 @@ def edition_dir(edition: str) -> Path:
 
 
 def blob_root() -> Path:
-    return data_root() / "blobs"
+    """CENSUS_BLOBS puts the blob store on another volume; a full harvest needs tens of GiB."""
+    return Path(os.environ.get("CENSUS_BLOBS", data_root() / "blobs"))
 
 
 def manifest_path(edition: str) -> Path:
