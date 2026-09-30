@@ -32,7 +32,10 @@ def test_kill_9_mid_stage_then_resume_loses_and_duplicates_nothing(isolated_data
     journal = isolated_data / "work" / "kill" / "journal" / "s1.jsonl"
     deadline = time.time() + 60
     while time.time() < deadline and (not journal.exists() or len(journal.read_text().splitlines()) < 3):
+        if proc.poll() is not None:
+            break
         time.sleep(0.05)
+    assert proc.poll() is None, f"helper exited on its own (return code {proc.returncode}) before the kill"
     os.kill(proc.pid, signal.SIGKILL)
     proc.wait()
     ctx = make_ctx("kill")

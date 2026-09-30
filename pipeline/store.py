@@ -77,4 +77,6 @@ class Tables:
         return con
 
     def read(self, table: str) -> list[dict]:
-        return self.connect().execute(f"SELECT * FROM {table}").fetch_arrow_table().to_pylist()
+        cur = self.connect().execute(f"SELECT * FROM {table}")
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, r)) for r in cur.fetchall()]

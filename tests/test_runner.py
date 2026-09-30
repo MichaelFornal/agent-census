@@ -87,3 +87,41 @@ def test_run_whole_recomputes_only_when_fingerprint_changes(ctx):
 def test_undeclared_table_is_an_error(ctx):
     with pytest.raises(ValueError, match="undeclared"):
         run_batched(ctx, "s1", units(1), lambda b: {"repos": []}, batch_size=1, log=quiet)
+
+
+def test_crash_between_parts_and_journal_line_is_recovered(ctx, monkeypatch):
+    from pipeline.journal import Journal
+
+    real = Journal.record
+    calls = []
+
+    def flaky(self, part, units, rows):
+        calls.append(part)
+        if len(calls) == 2:
+            raise RuntimeError("killed before the journal line")
+        real(self, part, units, rows)
+
+    monkeypatch.setattr(Journal, "record", flaky)
+    with pytest.raises(RuntimeError):
+        run_batched(ctx, "s1", units(4), hits, batch_size=2, log=quiet)
+    orphan = calls[1]
+    assert orphan in ctx.tables.parts("repo_hits")
+    monkeypatch.setattr(Journal, "record", real)
+    stats = run_batched(ctx, "s1", units(4), hits, batch_size=2, log=quiet)
+    assert stats.units_run == 2
+    assert sorted(r["repo"] for r in ctx.tables.read("repo_hits")) == [f"o/r{i}" for i in range(4)]
+    assert len(ctx.tables.parts("repo_hits")) == 2
+
+
+def test_kill_inside_reset_is_recovered(ctx):
+    n = []
+
+    def work():
+        n.append(1)
+        return hits(units(2))
+
+    run_whole(ctx, "s1", "fp1", work, log=quiet)
+    ctx.journal("s1").clear()  # killed mid-reset: journal gone, parts left behind
+    run_whole(ctx, "s1", "fp1", work, log=quiet)
+    assert len(n) == 2
+    assert len(ctx.tables.read("repo_hits")) == 2
