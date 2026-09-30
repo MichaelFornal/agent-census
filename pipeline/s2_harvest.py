@@ -132,7 +132,12 @@ def is_retryable(status: int, body: dict) -> bool:
     if status in (0, 502, 503, 504):
         return True
     # A whole-batch failure (GitHub's 10 s execution limit, resource limits) returns data null with errors.
-    return not body.get("data") and bool(body.get("errors"))
+    errors = body.get("errors") or []
+    if not body.get("data") and errors:
+        return True
+    # An error with no path (GitHub's generic timeout) says some field was nulled, but not which: the data is unreliable.
+    # RATE_LIMITED never reaches here; the client waits it out.
+    return any(not e.get("path") and e.get("type") != "NOT_FOUND" for e in errors)
 
 
 def _post(client: GraphQLClient, query: str) -> tuple[int, dict]:

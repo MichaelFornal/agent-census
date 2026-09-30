@@ -448,6 +448,23 @@ def test_single_blob_502_defers_the_repo(ctx):
     assert out.rows["repos"] == [] and out.rows["harness_files"] == []
 
 
+def test_partial_data_with_a_pathless_error_defers_the_repo(ctx):
+    hub = Hub({"o/a": node()})
+    real = hub.gql
+
+    def timeout(req):
+        resp = real(req)
+        if "HEAD:.claude" not in json.loads(req.content)["query"]:
+            return resp  # the health probe still passes
+        return httpx.Response(200, json={**resp.json(), "errors": [{"message": "Something went wrong"}]})
+
+    hub.gql = timeout
+    out = harvest(ctx, hub, [unit("o/a")])
+    assert out.deferred == {"k:o/a": "graphql_200"}
+    assert out.rows["repos"] == [] and out.rows["harness_files"] == []
+    assert s2.is_retryable(200, {"data": {"r0": {}}, "errors": [{"type": "NOT_FOUND", "message": "x"}]}) is False
+
+
 def two_repo_hub():
     return Hub({"o/a": node(), "o/b": node()},
                paths={("o/a", "CLAUDE.md"): "a" * 40, ("o/b", "CLAUDE.md"): "b" * 40},
