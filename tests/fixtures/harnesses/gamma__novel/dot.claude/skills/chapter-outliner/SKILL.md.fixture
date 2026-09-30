@@ -1,0 +1,8 @@
+---
+name: chapter-outliner
+description: Outline the next chapter from the notes.
+---
+
+Uses Claude to help write and outline a novel.
+
+Read the notes, then list the scenes for the next chapter.

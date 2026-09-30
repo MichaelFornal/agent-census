@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Block destructive commands before Claude runs them.
+cmd=$(jq -r '.tool_input.command')
+case "$cmd" in
+  *"rm -rf"*|*"terraform destroy"*) echo "blocked: $cmd" >&2; exit 2 ;;
+esac

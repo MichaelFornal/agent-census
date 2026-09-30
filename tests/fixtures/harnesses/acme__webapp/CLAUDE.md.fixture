@@ -1,0 +1,22 @@
+# Webapp
+
+Uses Claude to build and maintain a web application.
+
+See @docs/architecture.md for the module map.
+
+## Commands
+
+| Task | Command |
+|---|---|
+| Test | `npm test` |
+| Lint | `npm run lint` |
+
+## Rules
+
+- Never edit generated files in `dist/`, because the build overwrites them.
+- Run the tests before you say a change is done.
+
+```bash
+npm install
+npm test
+```

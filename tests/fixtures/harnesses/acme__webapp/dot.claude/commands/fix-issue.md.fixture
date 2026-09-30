@@ -1,0 +1,8 @@
+---
+description: Fix a GitHub issue by number
+allowed-tools: Bash(gh issue view:*)
+---
+
+Uses Claude to build and maintain a web application.
+
+Fix issue $ARGUMENTS: read it with `gh issue view $ARGUMENTS`, write a failing test, then fix it.

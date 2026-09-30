@@ -30,3 +30,10 @@ def isolated_data(tmp_path, monkeypatch):
 def ctx(tmp_path):
     from pipeline.context import make_ctx
     return make_ctx("test", site_data=tmp_path / "site-data")
+
+
+@pytest.fixture
+def fctx(tmp_path):
+    from helpers import FIXTURES
+    from pipeline.context import make_ctx
+    return make_ctx("test", fixtures=FIXTURES, llm="fake", embedder="hash", site_data=tmp_path / "site-data")

@@ -1,0 +1,5 @@
+# Data pipeline
+
+Uses Claude to clean and validate CSV data.
+
+Use the csv-cleaner skill for any file under `raw/`.

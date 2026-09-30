@@ -1,0 +1,5 @@
+# Infra
+
+Uses Claude to manage cloud infrastructure safely.
+
+Never run `terraform apply` without a plan file.

@@ -1,0 +1,8 @@
+{
+  "permissions": {"allow": ["Bash(terraform plan:*)"], "ask": ["Bash(terraform apply:*)"]},
+  "hooks": {
+    "PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": ".claude/hooks/guard.sh"}]}],
+    "SessionStart": [{"hooks": [{"type": "command", "command": "cat docs/runbook.md"}]}]
+  },
+  "sandbox": {"enabled": true}
+}

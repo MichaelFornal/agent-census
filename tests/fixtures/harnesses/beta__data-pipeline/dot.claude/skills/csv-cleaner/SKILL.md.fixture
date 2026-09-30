@@ -1,0 +1,12 @@
+---
+name: csv-cleaner
+description: Clean and validate CSV files before loading them.
+---
+
+# CSV cleaner
+
+Uses Claude to clean and validate CSV data.
+
+1. Run `python scripts/clean.py <file>`.
+2. Check the rules in `references/rules.md`.
+3. Report rows that were dropped.

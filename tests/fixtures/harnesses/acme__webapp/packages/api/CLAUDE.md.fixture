@@ -1,0 +1,5 @@
+# API package
+
+Uses Claude to build and maintain a web application.
+
+Keep request handlers thin and put logic in services.

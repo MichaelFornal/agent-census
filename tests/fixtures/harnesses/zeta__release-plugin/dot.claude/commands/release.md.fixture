@@ -1,0 +1,7 @@
+---
+description: Cut a release
+---
+
+Uses Claude to release plugin versions.
+
+Bump the version to $ARGUMENTS and tag it.
