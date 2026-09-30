@@ -5,6 +5,7 @@ and the call runs in an empty temp dir that loads only project settings. --json-
 answer in `structured_output`.
 """
 import json
+import os
 import re
 import subprocess
 import tempfile
@@ -25,6 +26,16 @@ class CallResult:
 
 class LLMLimitReached(Exception):
     """The plan refused for quota reasons: the stage stops instead of retrying."""
+
+
+ENV_ALLOW = ("PATH", "HOME", "USER", "LANG", "LC_ALL", "TMPDIR", "SHELL", "TERM")
+ENV_PREFIXES = ("CLAUDE_", "ANTHROPIC_")
+
+
+def _child_env() -> dict[str, str]:
+    """Only what claude -p needs. GITHUB_TOKEN, GH_TOKEN and anything else with TOKEN/SECRET/KEY in its name
+    stay out unless it starts with CLAUDE_ or ANTHROPIC_: the model reads untrusted artifact text."""
+    return {k: v for k, v in os.environ.items() if k in ENV_ALLOW or k.startswith(ENV_PREFIXES)}
 
 
 def claude_args(model: str, system: str, schema: dict) -> list[str]:
@@ -73,7 +84,7 @@ class ClaudeCLI:
         with tempfile.TemporaryDirectory() as cwd:
             try:
                 proc = subprocess.run(claude_args(model, system, schema), input=prompt, capture_output=True,
-                                      text=True, timeout=CALL_TIMEOUT_S, cwd=cwd)
+                                      text=True, timeout=CALL_TIMEOUT_S, cwd=cwd, env=_child_env())
             except subprocess.TimeoutExpired:
                 return CallResult(None, "timeout", time.monotonic() - t0, None)
         return parse_cli_output(proc.returncode, proc.stdout, proc.stderr, time.monotonic() - t0)

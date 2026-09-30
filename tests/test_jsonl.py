@@ -11,6 +11,14 @@ def test_read_jsonl_skips_partial_line_and_append_starts_fresh_line(tmp_path):
     assert read_jsonl(p) == [{"a": 1}, {"a": 3}]
 
 
+def test_unterminated_last_line_is_partial_even_when_it_parses(tmp_path):
+    p = tmp_path / "x.jsonl"
+    p.write_text('{"a": 1}\n{"a": 2}')
+    assert read_jsonl(p) == [{"a": 1}]
+    append_jsonl(p, {"a": 3})  # append truncates the same tail
+    assert read_jsonl(p) == [{"a": 1}, {"a": 3}]
+
+
 def test_read_missing_file_is_empty(tmp_path):
     assert read_jsonl(tmp_path / "none.jsonl") == []
 

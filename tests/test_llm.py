@@ -1,4 +1,5 @@
 import json
+import os
 import re
 
 import pytest
@@ -98,6 +99,21 @@ def test_fake_llm_records_validate_and_labels_have_no_digits():
     label = FakeLLM().call("sonnet", "sys", "- Uses Claude to plan trips.\n- Uses Claude to plan trips.",
                            LABEL_SCHEMA).data["label"]
     assert label and not re.search(r"\d", label)
+
+
+def test_child_env_passes_only_the_allowlist(monkeypatch):
+    from pipeline.llm.client import _child_env
+    for k in list(os.environ):
+        monkeypatch.delenv(k)
+    for k, v in {"PATH": "/bin", "HOME": "/h", "USER": "u", "LANG": "C", "LC_ALL": "C", "TMPDIR": "/t",
+                 "SHELL": "/bin/zsh", "TERM": "xterm", "CLAUDE_CODE_OAUTH": "c", "ANTHROPIC_BASE_URL": "a",
+                 "ANTHROPIC_API_KEY": "k", "GITHUB_TOKEN": "g", "GH_TOKEN": "g2", "AWS_SECRET_ACCESS_KEY": "s",
+                 "OPENAI_API_KEY": "o", "MY_TOKEN": "t", "EDITOR": "vi"}.items():
+        monkeypatch.setenv(k, v)
+    got = _child_env()
+    assert set(got) == {"PATH", "HOME", "USER", "LANG", "LC_ALL", "TMPDIR", "SHELL", "TERM", "CLAUDE_CODE_OAUTH",
+                        "ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"}
+    assert not {"GITHUB_TOKEN", "GH_TOKEN", "AWS_SECRET_ACCESS_KEY", "OPENAI_API_KEY", "MY_TOKEN"} & set(got)
 
 
 def test_artifact_text_cannot_forge_a_sibling_boundary():

@@ -20,7 +20,10 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
 
-    lines = path.read_text().splitlines()
+    text = path.read_text()
+    if text and not text.endswith("\n"):
+        text = text[:text.rfind("\n") + 1]  # unterminated tail is partial even if it parses (append_jsonl drops it)
+    lines = text.splitlines()
     # Find indices of non-empty lines
     non_empty_indices = [i for i, line in enumerate(lines) if line.strip()]
 
