@@ -1,11 +1,13 @@
 import random
 import re
 
+import pytest
 from helpers import FIXTURES
 
 from pipeline import s1_discover as s1
-from pipeline.context import Opts
+from pipeline.context import Opts, make_ctx
 from pipeline.fixtures import fixture_files
+from pipeline.runner import read_state
 
 
 def fake_count(sizes: dict[int, int]):
@@ -170,3 +172,89 @@ def test_fetch_node_dedupes_repo_path_across_pages():
     c = PageSearch(lambda p: _items(100) if p == 1 else _items(50))
     rows = s1.fetch_node(c, "claude_md", s1.Node("q", 150, "leaf"))
     assert len(rows) == 100
+
+
+def fake_github(monkeypatch):
+    monkeypatch.setattr(s1, "SearchClient", FakeSearch)
+    monkeypatch.setattr(s1, "github_token", lambda: "t")
+    FakeSearch.queries = []
+
+
+def hit_keys(ctx):
+    return sorted((h["repo"], h["path"], h["query_id"]) for h in ctx.tables.read("repo_hits"))
+
+
+def test_full_mode_records_each_family_and_completion(ctx, monkeypatch):
+    fake_github(monkeypatch)
+    s1.run(ctx, Opts())
+    state = read_state(ctx, "s1")
+    assert state["families_done"] == [f"{s}/{m}" for s in s1.SEEDS for m in s1.FORK_MODES]
+    assert state["complete"] is True
+
+
+def test_slice_mode_writes_no_state(ctx, monkeypatch):
+    fake_github(monkeypatch)
+    s1.run(ctx, Opts(limit=4))
+    assert read_state(ctx, "s1") == {}
+
+
+def test_rerun_of_a_complete_walk_makes_no_requests(ctx, monkeypatch):
+    fake_github(monkeypatch)
+    s1.run(ctx, Opts())
+    FakeSearch.queries = []
+    stats = s1.run(ctx, Opts())
+    assert FakeSearch.queries == [] and stats.units_run == 0
+
+
+def test_changed_walk_config_walks_again_without_duplicating(ctx, monkeypatch):
+    fake_github(monkeypatch)
+    s1.run(ctx, Opts())
+    before = hit_keys(ctx)
+    monkeypatch.setitem(s1.FLOOR_SPLITS, "mcp", ["path:/", "extension:json"])
+    FakeSearch.queries = []
+    stats = s1.run(ctx, Opts())
+    assert FakeSearch.queries and stats.units_run == 0  # the lattice is walked again; every node is already journaled
+    assert hit_keys(ctx) == before
+
+
+class Crash(Exception):
+    pass
+
+
+def test_crash_mid_walk_resumes_without_loss_or_duplicates(ctx, monkeypatch):
+    fake_github(monkeypatch)
+    clean = make_ctx("clean")
+    s1.run(clean, Opts())
+    real, pages = FakeSearch.search, []
+
+    def dying(self, q, page=1, per_page=100):
+        if per_page == 100:
+            pages.append(q)
+            if len(pages) == 30:
+                raise Crash()
+        return real(self, q, page, per_page)
+
+    monkeypatch.setattr(FakeSearch, "search", dying)
+    with pytest.raises(Crash):
+        s1.run(ctx, Opts())
+    assert 0 < len(ctx.journal("s1").done_units()) and not read_state(ctx, "s1").get("complete")
+    monkeypatch.setattr(FakeSearch, "search", real)
+    s1.run(ctx, Opts())
+    assert hit_keys(ctx) == hit_keys(clean) and read_state(ctx, "s1")["complete"]
+
+
+def test_journal_is_read_once_per_run(ctx, monkeypatch):
+    from pipeline.journal import Journal
+
+    fake_github(monkeypatch)
+    reads = []
+    real = Journal.done_units
+    monkeypatch.setattr(Journal, "done_units", lambda self: reads.append(1) or real(self))
+    s1.run(ctx, Opts())
+    assert len(reads) == 1
+
+
+def test_full_mode_does_not_load_every_hit(ctx, monkeypatch):
+    fake_github(monkeypatch)
+    monkeypatch.setattr(s1, "_repos_by_seed", lambda ctx: pytest.fail("full mode must not read repo_hits"))
+    s1.run(ctx, Opts())

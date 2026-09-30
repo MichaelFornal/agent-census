@@ -6,6 +6,9 @@ is cached in search_cache.jsonl, so a killed walk replays from the cache. In sli
 (opts.limit = target repos) child ranges are visited in a seeded random order, so the first leaves
 are spread across the size range instead of all being tiny files.
 
+In full mode each (seed, fork mode) family that has been walked to the end is recorded in the stage state
+file. A rerun skips finished families, and S2 reads the state to know when nested CLAUDE.md paths are final.
+
 Fork semantics, measured live against GitHub code search: a plain query returns non-fork repos
 only; `fork:true` returns ONLY forks (the same as `fork:only`: 976 vs 6,960 results, 100/100 forks
 on the page); `fork:false` is rejected with a 422. So each seed is walked as two families: the
@@ -22,7 +25,7 @@ from pipeline.fixtures import fixture_files, fixture_repos, git_blob_sha
 from pipeline.gh import SearchClient, github_token
 from pipeline.journal import unit_key
 from pipeline.kinds import PARSED_KINDS, classify
-from pipeline.runner import RunStats, Unit, merge_stats, run_batched, run_whole
+from pipeline.runner import RunStats, StageSession, Unit, merge_stats, read_state, run_batched, run_whole, write_state
 
 VERSION = 2  # 2: query strings changed (fork:true replaced by non-fork and fork:only families)
 MAX_SIZE = 393_216  # code search does not index files of 384 KB or more
@@ -41,6 +44,7 @@ FLOOR_SPLITS = {
     "mcp": ["path:/"],
     "plugin": ["extension:json", "extension:md"],
 }
+PROGRESS_EVERY = 25  # nodes between progress lines
 
 
 @dataclass(frozen=True)
@@ -126,6 +130,11 @@ def _run_fixtures(ctx: Ctx) -> RunStats:
     return run_whole(ctx, "s1", unit_key(VERSION, rows), lambda: {"repo_hits": rows})
 
 
+def _walk_config() -> str:
+    """Fingerprint of everything that decides which nodes the walk visits."""
+    return unit_key(VERSION, SEEDS, FLOOR_SPLITS, FORK_MODES, CAP, MAX_SIZE)
+
+
 def run(ctx: Ctx, opts: Opts) -> RunStats:
     if ctx.fixtures:
         return _run_fixtures(ctx)
@@ -140,27 +149,50 @@ def run(ctx: Ctx, opts: Opts) -> RunStats:
             incomplete += 1
         return body["total_count"]
 
-    have = _repos_by_seed(ctx)
-    target = math.ceil(opts.limit / len(SEEDS)) if opts.limit is not None else None
+    full = opts.limit is None
+    session = StageSession(ctx, "s1")
+    state = read_state(ctx, "s1") if full else {}
+    if state.get("config") != _walk_config():
+        state = {"config": _walk_config(), "families_done": [], "complete": False}
+    have = {} if full else _repos_by_seed(ctx)  # slice mode only: the full table does not fit in memory
+    target = None if full else math.ceil(opts.limit / len(SEEDS))
     total = RunStats("s1")
-    modes = ["nonfork"] if opts.limit is not None else list(FORK_MODES)
-    for seed, mode in ((s, m) for s in SEEDS for m in modes):
-        family = (seed, mode)
+    for seed, mode in ((s, m) for s in SEEDS for m in (FORK_MODES if full else ["nonfork"])):
+        name = f"{seed}/{mode}"
+        if name in state["families_done"]:
+            continue
+        found = have.get((seed, mode), set())
         rng = random.Random(f"{VERSION}:{seed}:{mode}")
         nodes = walk(_base(SEEDS[seed], mode), count, rng, FLOOR_SPLITS[seed])
-        while target is None or len(have[family]) < target:
+        walked = 0
+        while target is None or len(found) < target:
             node = next(nodes, None)  # pulling a node issues count requests, so check the target first
             if node is None:
                 break
-            got: list[str] = []
+            walked += 1
+            key = unit_key("s1", VERSION, node.query, node.kind)
+            if key in session.done:
+                total.units_total += 1
+                total.units_skipped += 1
+            else:
+                got: list[str] = []
 
-            def work(batch: list[Unit]) -> dict[str, list[dict]]:
-                out = node_work(client, batch)
-                got.extend(r["repo"] for r in out["repo_hits"])
-                return out
+                def work(batch: list[Unit], got: list[str] = got) -> dict[str, list[dict]]:
+                    out = node_work(client, batch)
+                    got.extend(r["repo"] for r in out["repo_hits"])
+                    return out
 
-            unit = Unit(unit_key("s1", VERSION, node.query, node.kind), (seed, node))
-            merge_stats(total, run_batched(ctx, "s1", [unit], work, batch_size=1, log=lambda m: None))
-            have[family].update(got)
-        print(f"s1 {seed} [{mode}]: {len(have[family])} repos; search {client.stats}; incomplete counts {incomplete}", flush=True)
+                merge_stats(total, run_batched(ctx, "s1", [Unit(key, (seed, node))], work, batch_size=1,
+                                               log=lambda m: None, session=session))
+                found.update(got)
+            if walked % PROGRESS_EVERY == 0:
+                print(f"s1 {name}: {walked} nodes walked, {total.units_run} fetched this run; search {client.stats}",
+                      flush=True)
+        if full:  # the walk ran to its end, so every repo this family can reach is in repo_hits
+            state["families_done"].append(name)
+            write_state(ctx, "s1", state)
+        print(f"s1 {name}: {walked} nodes; search {client.stats}; incomplete counts {incomplete}", flush=True)
+    if full:
+        state["complete"] = True
+        write_state(ctx, "s1", state)
     return total
