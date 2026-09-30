@@ -16,4 +16,5 @@ def fixture_text(repo: str, path: str) -> str:
 def run_until(ctx, last: str) -> None:
     from pipeline.cli import PIPELINE, run_stage
     for stage in PIPELINE[: PIPELINE.index(last) + 1]:
-        run_stage(stage, ctx, Opts())
+        stats = run_stage(stage, ctx, Opts())
+        assert not stats.stopped, (stage, stats.stopped)
