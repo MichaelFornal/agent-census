@@ -2,6 +2,9 @@ import json
 import os
 import re
 import signal
+import subprocess
+import sys
+import time
 
 import pytest
 
@@ -54,7 +57,7 @@ def test_restarts_until_the_stage_exits_zero(ctx):
     assert sleeps == [1.0, 1.0]  # both failed runs made progress
     log = (ctx.root / "logs" / "s1.log").read_text()
     assert "exit -9" in log and "complete" in log
-    assert (ctx.root / "logs" / "s1.child.pid").read_text() == "4242"
+    assert not (ctx.root / "logs" / "s1.child.pid").exists()  # removed on every exit path
     assert not (ctx.root / "logs" / "supervise-s1.pid").exists()
 
 
@@ -109,16 +112,80 @@ def test_sigterm_terminates_the_child_and_the_supervisor_returns_143(ctx):
     assert signal.getsignal(signal.SIGTERM) == before
 
 
-def test_sigterm_during_the_backoff_sleep_returns_143_at_once(ctx):
+def test_sigterm_during_the_backoff_sleep_returns_143_promptly(ctx):
     spawn, commands = script(ctx, [(1, 0), (0, 0)])
 
     def sleep(s):
         signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
-        raise AssertionError("the supervisor kept sleeping after SIGTERM")
+        time.sleep(0.01)
 
     assert sup.supervise(ctx, "s1", [], spawn=spawn, sleep=sleep, min_backoff=1.0) == 143
     assert len(commands) == 1
+    assert state_of(ctx)["stopped"] is True
     assert not (ctx.root / "logs" / "supervise-s1.pid").exists()
+
+
+HELPER = """
+import subprocess, sys
+from pipeline import supervise as sup
+from pipeline.context import make_ctx
+
+sup._keep_awake = lambda: None
+ctx = make_ctx("test")
+
+def spawn(cmd, **kw):
+    child = subprocess.Popen([sys.executable, "-c", CHILD])
+    print(child.pid, flush=True)
+    return child
+
+sys.exit(sup.supervise(ctx, "s1", [], spawn=spawn, min_backoff=1800.0))
+"""
+
+
+def run_helper(child_code):
+    return subprocess.Popen([sys.executable, "-c", f"CHILD = {child_code!r}\n{HELPER}"],
+                            stdout=subprocess.PIPE, text=True)
+
+
+def gone(pid, timeout=10.0):
+    end = time.time() + timeout
+    while time.time() < end:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def test_real_sigterm_stops_the_supervisor_and_its_running_child(ctx):
+    proc = run_helper("import time; time.sleep(120)")
+    try:
+        child_pid = int(proc.stdout.readline())
+        time.sleep(0.3)
+        proc.send_signal(signal.SIGTERM)
+        assert proc.wait(timeout=10) == 143
+        assert gone(child_pid)
+    finally:
+        proc.kill()
+    logs = ctx.root / "logs"
+    assert not (logs / "supervise-s1.pid").exists() and not (logs / "s1.child.pid").exists()
+
+
+def test_real_sigterm_ends_a_long_backoff_at_once(ctx):
+    proc = run_helper("raise SystemExit(1)")  # the child fails, so the supervisor backs off 3,600 s
+    try:
+        proc.stdout.readline()
+        state = ctx.root / "logs" / "supervise-s1.state.json"
+        end = time.time() + 10
+        while not state.exists() and time.time() < end:
+            time.sleep(0.05)
+        proc.send_signal(signal.SIGTERM)
+        assert proc.wait(timeout=10) == 143
+    finally:
+        proc.kill()
+    logs = ctx.root / "logs"
+    assert not (logs / "supervise-s1.pid").exists() and not (logs / "s1.child.pid").exists()
 
 
 def test_refuses_when_another_supervisor_is_alive(ctx):
