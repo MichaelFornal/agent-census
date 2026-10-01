@@ -1,162 +1,458 @@
 {
-  "uc-09b9e50dec": {
-    "draft_label": "Frontend design and project skills",
-    "level": 1,
-    "non_coding": false,
-    "parent_id": null,
-    "size": 602,
-    "status": "draft"
-  },
-  "uc-281675d7fa": {
-    "draft_label": "Claude Code project guidance files",
-    "level": 1,
-    "non_coding": false,
-    "parent_id": null,
-    "size": 2327,
-    "status": "draft"
-  },
-  "uc-2b32d44bb4": {
-    "draft_label": "Next.js project context guidance files",
+  "uc-005248c70c": {
+    "draft_label": "Claude-Flow swarm orchestration",
     "level": 2,
     "non_coding": false,
-    "parent_id": "uc-c87561727c",
-    "size": 104,
+    "parent_id": "uc-dcd3c551b3",
+    "size": 18,
     "status": "draft"
   },
-  "uc-36035745d1": {
-    "draft_label": "Swift Apple platform project guides",
+  "uc-08ac0ec264": {
+    "draft_label": "Frontend UI design and development",
     "level": 1,
     "non_coding": false,
     "parent_id": null,
-    "size": 243,
+    "size": 541,
     "status": "draft"
   },
-  "uc-530c867a98": {
-    "draft_label": "Claude Code workflow commands and skills",
+  "uc-0aa8d7ae0f": {
+    "draft_label": "Git and GitHub workflow automation",
     "level": 1,
     "non_coding": false,
     "parent_id": null,
-    "size": 2036,
+    "size": 913,
     "status": "draft"
   },
-  "uc-5d5cb4150e": {
-    "draft_label": "Custom slash command definitions",
+  "uc-0cd4facf40": {
+    "draft_label": "Building MCP servers",
     "level": 2,
     "non_coding": false,
-    "parent_id": "uc-530c867a98",
-    "size": 533,
+    "parent_id": "uc-cac9db750f",
+    "size": 85,
     "status": "draft"
   },
-  "uc-6489e6ea05": {
-    "draft_label": "Project context and agent configuration files",
+  "uc-0df533ea5a": {
+    "draft_label": "Obsidian vault knowledge management",
+    "level": 2,
+    "non_coding": true,
+    "parent_id": "uc-a41dc64bff",
+    "size": 130,
+    "status": "draft"
+  },
+  "uc-0dfeb9eac7": {
+    "draft_label": "Infrastructure, containers, and software development",
     "level": 1,
     "non_coding": false,
     "parent_id": null,
-    "size": 1668,
+    "size": 704,
     "status": "draft"
   },
-  "uc-7c80b26c4c": {
-    "draft_label": "Web app project CLAUDE.md guides",
+  "uc-16186f72d6": {
+    "draft_label": "NanoClaw setup, migration, and integrations",
     "level": 2,
     "non_coding": false,
-    "parent_id": "uc-c87561727c",
+    "parent_id": "uc-3f25c19de4",
+    "size": 40,
+    "status": "draft"
+  },
+  "uc-165a9b57df": {
+    "draft_label": "React frontend web app development",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-4ceca9e8c1",
+    "size": 71,
+    "status": "draft"
+  },
+  "uc-176b1adfd8": {
+    "draft_label": "TypeScript project development workflows",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 607,
+    "status": "draft"
+  },
+  "uc-18a29cd90e": {
+    "draft_label": "Flutter mobile app development",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-c4abe92bd4",
+    "size": 115,
+    "status": "draft"
+  },
+  "uc-192144736f": {
+    "draft_label": "Marketing and social content operations",
+    "level": 1,
+    "non_coding": true,
+    "parent_id": null,
+    "size": 454,
+    "status": "draft"
+  },
+  "uc-1c481d3e60": {
+    "draft_label": "Claude Code configuration and tooling",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 308,
+    "status": "draft"
+  },
+  "uc-1ceefd2d3b": {
+    "draft_label": "Kubernetes homelab GitOps operations",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-0dfeb9eac7",
+    "size": 40,
+    "status": "draft"
+  },
+  "uc-22367f4901": {
+    "draft_label": "Product requirements and spec authoring",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-9e22813504",
+    "size": 54,
+    "status": "draft"
+  },
+  "uc-285affcbd4": {
+    "draft_label": "Swift Apple Platform App Development",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 211,
+    "status": "draft"
+  },
+  "uc-2e7087ffb8": {
+    "draft_label": "Email outreach and automation workflows",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-192144736f",
+    "size": 31,
+    "status": "draft"
+  },
+  "uc-3178441f58": {
+    "draft_label": "Multi-agent orchestration and workflows",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 768,
+    "status": "draft"
+  },
+  "uc-3a84c6589d": {
+    "draft_label": "Spec-driven implementation task planning",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-9e22813504",
+    "size": 60,
+    "status": "draft"
+  },
+  "uc-3e529c7c66": {
+    "draft_label": "Laravel Pest testing and PHP development",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-753db6f1b2",
+    "size": 24,
+    "status": "draft"
+  },
+  "uc-3f25c19de4": {
+    "draft_label": "NanoClaw channel and install setup",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 118,
+    "status": "draft"
+  },
+  "uc-4ceca9e8c1": {
+    "draft_label": "React frontend web app development",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 569,
+    "status": "draft"
+  },
+  "uc-5040359399": {
+    "draft_label": "Agent session workflow management tooling",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 327,
+    "status": "draft"
+  },
+  "uc-52003a99e0": {
+    "draft_label": "Astro website maintenance",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-7a3e4c298d",
+    "size": 51,
+    "status": "draft"
+  },
+  "uc-5a65641bfc": {
+    "draft_label": "Laravel Livewire Boost app development",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-753db6f1b2",
+    "size": 27,
+    "status": "draft"
+  },
+  "uc-6145973143": {
+    "draft_label": "Scientific and technical simulation projects",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-c2c197ceb0",
+    "size": 118,
+    "status": "draft"
+  },
+  "uc-71e8307d09": {
+    "draft_label": "Embedded firmware and hardware development",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-c2c197ceb0",
     "size": 75,
     "status": "draft"
   },
-  "uc-88a28323c5": {
-    "draft_label": "Game project CLAUDE.md guidance",
+  "uc-753db6f1b2": {
+    "draft_label": "Laravel PHP application development",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 163,
+    "status": "draft"
+  },
+  "uc-7a3e4c298d": {
+    "draft_label": "Website and WordPress theme development",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 339,
+    "status": "draft"
+  },
+  "uc-7df44ea65c": {
+    "draft_label": "Claude-flow swarm CLI management",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-dcd3c551b3",
+    "size": 15,
+    "status": "draft"
+  },
+  "uc-804686f366": {
+    "draft_label": "Laravel admin app development",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-753db6f1b2",
+    "size": 32,
+    "status": "draft"
+  },
+  "uc-91204af37b": {
+    "draft_label": "Session handoff document writing",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-5040359399",
+    "size": 29,
+    "status": "draft"
+  },
+  "uc-95be6a76b2": {
+    "draft_label": "Git commit and branching workflows",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-0aa8d7ae0f",
+    "size": 132,
+    "status": "draft"
+  },
+  "uc-968855db03": {
+    "draft_label": "Session handoff and context checkpointing",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-5040359399",
+    "size": 19,
+    "status": "draft"
+  },
+  "uc-9bf426ca81": {
+    "draft_label": "Debugging and root-cause analysis",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 356,
+    "status": "draft"
+  },
+  "uc-9e22813504": {
+    "draft_label": "Spec-driven development workflow orchestration",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 1283,
+    "status": "draft"
+  },
+  "uc-a2cde901a9": {
+    "draft_label": "Static website maintenance",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-7a3e4c298d",
+    "size": 57,
+    "status": "draft"
+  },
+  "uc-a41dc64bff": {
+    "draft_label": "Diverse personal and academic projects",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 1013,
+    "status": "draft"
+  },
+  "uc-a980a656e7": {
+    "draft_label": "Game and Mod Development Projects",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 555,
+    "status": "draft"
+  },
+  "uc-afb79b977f": {
+    "draft_label": "Social media marketing and content strategy",
+    "level": 2,
+    "non_coding": true,
+    "parent_id": "uc-192144736f",
+    "size": 56,
+    "status": "draft"
+  },
+  "uc-b19dea9970": {
+    "draft_label": "Code Review and Quality Assurance",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 680,
+    "status": "draft"
+  },
+  "uc-b86901a484": {
+    "draft_label": "Database and backend data engineering",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 297,
+    "status": "draft"
+  },
+  "uc-c2c197ceb0": {
+    "draft_label": "Diverse personal and research software projects",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 797,
+    "status": "draft"
+  },
+  "uc-c3092e03b8": {
+    "draft_label": "GitHub issue and PR workflow management",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-0aa8d7ae0f",
+    "size": 123,
+    "status": "draft"
+  },
+  "uc-c3e5a9457c": {
+    "draft_label": "Docker containerization and deployment",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-0dfeb9eac7",
+    "size": 34,
+    "status": "draft"
+  },
+  "uc-c4abe92bd4": {
+    "draft_label": "AI-powered mobile and web apps",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 359,
+    "status": "draft"
+  },
+  "uc-c7d891de35": {
+    "draft_label": "Code review and verification",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-b19dea9970",
+    "size": 125,
+    "status": "draft"
+  },
+  "uc-cac9db750f": {
+    "draft_label": "Rust and Tauri application development",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 1062,
+    "status": "draft"
+  },
+  "uc-d8ac120d11": {
+    "draft_label": "Rust systems and tooling development",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-cac9db750f",
+    "size": 138,
+    "status": "draft"
+  },
+  "uc-dcd3c551b3": {
+    "draft_label": "Multi-agent swarm orchestration tooling",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 347,
+    "status": "draft"
+  },
+  "uc-e16a4f35b7": {
+    "draft_label": "Mobile app development (Expo/Flutter)",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-c4abe92bd4",
+    "size": 14,
+    "status": "draft"
+  },
+  "uc-e799a16a0f": {
+    "draft_label": "Terraform infrastructure and cloud deployment",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-0dfeb9eac7",
+    "size": 47,
+    "status": "draft"
+  },
+  "uc-e830815369": {
+    "draft_label": "Full-stack web app development",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 624,
+    "status": "draft"
+  },
+  "uc-e9ae03d7e6": {
+    "draft_label": "React shadcn UI component development",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-4ceca9e8c1",
+    "size": 48,
+    "status": "draft"
+  },
+  "uc-eda5759ec4": {
+    "draft_label": "Codebase Audits and Fix Implementation",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-b19dea9970",
+    "size": 27,
+    "status": "draft"
+  },
+  "uc-f46abf98ac": {
+    "draft_label": "FastAPI web app development",
     "level": 1,
     "non_coding": false,
     "parent_id": null,
     "size": 348,
     "status": "draft"
   },
-  "uc-987f5d12be": {
-    "draft_label": "Agent skills and workflow orchestration",
-    "level": 1,
-    "non_coding": false,
-    "parent_id": null,
-    "size": 1229,
+  "uc-fdb971f44b": {
+    "draft_label": "Academic and Technical Research Review",
+    "level": 2,
+    "non_coding": true,
+    "parent_id": "uc-a41dc64bff",
+    "size": 55,
     "status": "draft"
   },
-  "uc-a0ea297935": {
-    "draft_label": "NanoClaw channel installation skills",
-    "level": 1,
-    "non_coding": false,
-    "parent_id": null,
-    "size": 119,
-    "status": "draft"
-  },
-  "uc-ae0789bb88": {
-    "draft_label": "Project CLAUDE.md context files",
-    "level": 1,
-    "non_coding": false,
-    "parent_id": null,
-    "size": 253,
-    "status": "draft"
-  },
-  "uc-c1552127a5": {
-    "draft_label": "React frontend project conventions",
+  "uc-febd55da41": {
+    "draft_label": "Add NanoClaw messaging channel integrations",
     "level": 2,
     "non_coding": false,
-    "parent_id": "uc-c87561727c",
-    "size": 102,
-    "status": "draft"
-  },
-  "uc-c87561727c": {
-    "draft_label": "Project onboarding CLAUDE.md guides",
-    "level": 1,
-    "non_coding": false,
-    "parent_id": null,
-    "size": 1946,
-    "status": "draft"
-  },
-  "uc-ccef5dd072": {
-    "draft_label": "Project-specific dev context and guides",
-    "level": 1,
-    "non_coding": false,
-    "parent_id": null,
-    "size": 1047,
-    "status": "draft"
-  },
-  "uc-d5465c178e": {
-    "draft_label": "Git and PR workflow automation commands",
-    "level": 2,
-    "non_coding": false,
-    "parent_id": "uc-530c867a98",
-    "size": 120,
-    "status": "draft"
-  },
-  "uc-dc2cfc0cd8": {
-    "draft_label": "Claude Code agent and skill definitions",
-    "level": 1,
-    "non_coding": false,
-    "parent_id": null,
-    "size": 1104,
-    "status": "draft"
-  },
-  "uc-e037a6d6e2": {
-    "draft_label": "Specialized subagent persona definitions",
-    "level": 1,
-    "non_coding": false,
-    "parent_id": null,
-    "size": 829,
-    "status": "draft"
-  },
-  "uc-f16faa1f67": {
-    "draft_label": "Swift Apple platform app guides",
-    "level": 2,
-    "non_coding": false,
-    "parent_id": "uc-36035745d1",
-    "size": 93,
-    "status": "draft"
-  },
-  "uc-f3e5f8f99a": {
-    "draft_label": "Point-Free Swift library skills",
-    "level": 2,
-    "non_coding": false,
-    "parent_id": "uc-36035745d1",
-    "size": 14,
+    "parent_id": "uc-3f25c19de4",
+    "size": 53,
     "status": "draft"
   }
 }
