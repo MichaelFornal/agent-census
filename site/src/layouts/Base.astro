@@ -1,12 +1,13 @@
 ---
 import { edition } from "../lib/facts";
-import { REMOVAL_URL, REPO_URL } from "../lib/config";
+import { REMOVAL_URL, REPO_URL, SHOW_USE_CASES } from "../lib/config";
 interface Props { title: string; description?: string }
 const { title, description = "How public GitHub repos set up Claude Code: CLAUDE.md, skills, subagents, hooks, permissions and MCP." } = Astro.props;
 const pageTitle = title === "Agent Census" ? title : `${title} | Agent Census`;
 const path = Astro.url.pathname;
 const nav = [
   { href: "/", label: "Findings" },
+  ...(SHOW_USE_CASES ? [{ href: "/use-cases/", label: "Use cases" }] : []),
   { href: "/techniques/", label: "Techniques" },
   { href: "/methodology/", label: "Methodology" },
 ];

@@ -52,7 +52,8 @@ const useCases = SHOW_USE_CASES
   {SHOW_USE_CASES && useCases.length > 0 && (
     <>
       <h2>Use cases</h2>
-      <ul>{useCases.map((u) => <li><a href={`/use-cases/${u.id}/`}>{u.label}</a></li>)}</ul>
+      <p>What people make Claude do, grouped into domains from the files themselves.</p>
+      <p><a href="/use-cases/">Browse use cases</a></p>
     </>
   )}
 </Base>

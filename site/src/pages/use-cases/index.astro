@@ -1,0 +1,52 @@
+---
+import Base from "../../layouts/Base.astro";
+import BarChart from "../../components/BarChart.astro";
+import { fmt, scalar, series } from "../../lib/facts";
+import { SHOW_USE_CASES } from "../../lib/config";
+
+interface UseCase { id: string; label: string; parent_id: string | null; non_coding: boolean }
+
+const all: UseCase[] = SHOW_USE_CASES
+  ? Object.values(import.meta.glob<{ default: UseCase }>("../../data/use-cases/*.json", { eager: true })).map((m) => m.default)
+  : [];
+const size = new Map(series<{ use_case_id: string; harnesses: number }>("use_case_sizes").map((r) => [r.use_case_id, r.harnesses]));
+const bySize = (a: UseCase, b: UseCase) => (size.get(b.id) ?? 0) - (size.get(a.id) ?? 0);
+const domains = all.filter((u) => !u.parent_id).sort(bySize);
+const children = (id: string) => all.filter((u) => u.parent_id === id).sort(bySize);
+const total = scalar("harnesses_total");
+const rows = domains.map((d) => ({ label: d.label, share: (size.get(d.id) ?? 0) / total, href: `/use-cases/${d.id}/` }));
+---
+<Base title="Use cases" description="What people make Claude Code do, grouped into domains from the files themselves.">
+  <h1>Use cases</h1>
+  {domains.length === 0 ? (
+    <p class="lede">Use cases are not published for this edition yet.</p>
+  ) : (
+    <>
+      <p class="lede">
+        A language model read one copy of every distinct file and said what Claude is being made to do. Those
+        descriptions were clustered into domains; the labels are drafts reviewed by hand.
+      </p>
+      <BarChart rows={rows} title="Share of harnesses with at least one file in each domain" />
+      <ul class="domains">
+        {domains.map((d) => (
+          <li>
+            <a href={`/use-cases/${d.id}/`}>{d.label}</a>
+            <span class="n">{fmt(size.get(d.id) ?? 0, "int")} harnesses</span>
+            {d.non_coding && <span class="tag">not coding</span>}
+            {children(d.id).length > 0 && (
+              <ul>{children(d.id).map((c) => <li><a href={`/use-cases/${c.id}/`}>{c.label}</a></li>)}</ul>
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
+  )}
+</Base>
+<style>
+  .domains { list-style: none; padding: 0; }
+  .domains > li { padding: 0.75rem 0; border-bottom: 1px solid var(--rule); }
+  .domains > li > a { font-weight: 600; }
+  .domains ul { margin: 0.25rem 0 0; padding-left: 1.25rem; font-size: 0.95rem; }
+  .n { color: var(--muted); font-size: 0.9rem; margin-left: 0.5rem; font-variant-numeric: tabular-nums; }
+  .tag { font-size: 0.8rem; margin-left: 0.5rem; padding: 0.05rem 0.4rem; border: 1px solid var(--rule); color: var(--muted); }
+</style>
