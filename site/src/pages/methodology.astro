@@ -2,7 +2,7 @@
 import Base from "../layouts/Base.astro";
 import Fact from "../components/Fact.astro";
 import { edition } from "../lib/facts";
-import { REMOVAL_URL, REPO_URL } from "../lib/config";
+import { REMOVAL_URL, REPO_URL, SLICE_EDITION } from "../lib/config";
 import doc from "../data/facts.json";
 
 const queries = Object.values((doc as unknown as { facts: Record<string, { id: string; query_file: string }> }).facts)
@@ -16,12 +16,20 @@ const queries = Object.values((doc as unknown as { facts: Record<string, { id: s
   </p>
 
   <h2>This preview</h2>
-  <p>
-    This edition is a small vertical slice: <Fact id="harnesses_total" /> harnesses holding <Fact id="artifacts_total" />
-    parsed files, found by searching for non-fork repos only. It exists to show
-    the pipeline working end to end. The full census enumerates every indexed repo, forks included, and is
-    still being collected.
-  </p>
+  {edition.edition === SLICE_EDITION ? (
+    <p>
+      This edition is a small vertical slice: <Fact id="harnesses_total" /> harnesses holding <Fact id="artifacts_total" />
+      parsed files, found by searching for non-fork repos only. It exists to show the pipeline working end to
+      end. The full census enumerates every indexed repo, forks included, and is still being collected.
+    </p>
+  ) : (
+    <p>
+      This edition is a random sample of the repos the full census had found by its first search, for
+      CLAUDE.md files in non-fork repos: <Fact id="harnesses_total" /> harnesses holding <Fact id="artifacts_total" />
+      parsed files. Repos with skills, hooks or MCP files but no CLAUDE.md are missing from it, and forks are
+      not included. The full census runs every search and is still being collected.
+    </p>
+  )}
 
   <h2>The pipeline</h2>
   <ol class="steps">

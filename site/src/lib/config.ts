@@ -6,3 +6,6 @@ export const SHOW_USE_CASES = false;
 
 export const REPO_URL = "https://github.com/MichaelFornal/agent-census";
 export const REMOVAL_URL = `${REPO_URL}/issues/new?template=removal-request.yml`;
+
+// The M1 vertical-slice edition, whose methodology note differs from later preview editions.
+export const SLICE_EDITION = "m1-slice";
