@@ -24,7 +24,7 @@ const rows = domains.map((d) => ({ label: d.label, share: (size.get(d.id) ?? 0) 
     <>
       <p class="lede">
         A language model read one copy of every distinct file and said what Claude is being made to do. Those
-        descriptions were clustered into domains; the labels are drafts reviewed by hand.
+        descriptions were clustered into domains; a model named each domain and the names were reviewed by hand.
       </p>
       <BarChart rows={rows} title="Share of harnesses with at least one file in each domain" />
       <ul class="domains">

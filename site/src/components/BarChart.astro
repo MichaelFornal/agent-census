@@ -19,7 +19,7 @@ const { rows, title } = Astro.props;
     el.append(Plot.plot({
       x: { percent: true, label: "Share of harnesses (%)", grid: true, labelAnchor: "center", labelArrow: "none", labelOffset: 40 },
       y: { label: null },
-      marginLeft: Math.min(300, 24 + longest * 9),
+      marginLeft: Math.min(420, 24 + longest * 9.5),
       marginBottom: 48,
       height: 40 + rows.length * 26,
       width: Math.min(el.clientWidth || 640, 760),

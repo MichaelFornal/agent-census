@@ -5,7 +5,7 @@
     "non_coding": false,
     "parent_id": "uc-dcd3c551b3",
     "size": 18,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-08ac0ec264": {
     "draft_label": "Frontend UI design and development",
@@ -13,7 +13,7 @@
     "non_coding": false,
     "parent_id": null,
     "size": 541,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-0aa8d7ae0f": {
     "draft_label": "Git and GitHub workflow automation",
@@ -21,7 +21,7 @@
     "non_coding": false,
     "parent_id": null,
     "size": 913,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-0cd4facf40": {
     "draft_label": "Building MCP servers",
@@ -29,7 +29,7 @@
     "non_coding": false,
     "parent_id": "uc-cac9db750f",
     "size": 85,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-0df533ea5a": {
     "draft_label": "Obsidian vault knowledge management",
@@ -37,15 +37,16 @@
     "non_coding": true,
     "parent_id": "uc-a41dc64bff",
     "size": 130,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-0dfeb9eac7": {
     "draft_label": "Infrastructure, containers, and software development",
+    "label": "Infrastructure and deployment",
     "level": 1,
     "non_coding": false,
     "parent_id": null,
     "size": 704,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-16186f72d6": {
     "draft_label": "NanoClaw setup, migration, and integrations",
@@ -53,15 +54,16 @@
     "non_coding": false,
     "parent_id": "uc-3f25c19de4",
     "size": 40,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-165a9b57df": {
     "draft_label": "React frontend web app development",
+    "label": "React web apps",
     "level": 2,
     "non_coding": false,
     "parent_id": "uc-4ceca9e8c1",
     "size": 71,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-176b1adfd8": {
     "draft_label": "TypeScript project development workflows",
@@ -69,7 +71,7 @@
     "non_coding": false,
     "parent_id": null,
     "size": 607,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-18a29cd90e": {
     "draft_label": "Flutter mobile app development",
@@ -77,7 +79,7 @@
     "non_coding": false,
     "parent_id": "uc-c4abe92bd4",
     "size": 115,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-192144736f": {
     "draft_label": "Marketing and social content operations",
@@ -85,7 +87,7 @@
     "non_coding": true,
     "parent_id": null,
     "size": 454,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-1c481d3e60": {
     "draft_label": "Claude Code configuration and tooling",
@@ -93,7 +95,7 @@
     "non_coding": false,
     "parent_id": null,
     "size": 308,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-1ceefd2d3b": {
     "draft_label": "Kubernetes homelab GitOps operations",
@@ -101,7 +103,7 @@
     "non_coding": false,
     "parent_id": "uc-0dfeb9eac7",
     "size": 40,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-22367f4901": {
     "draft_label": "Product requirements and spec authoring",
@@ -109,15 +111,16 @@
     "non_coding": false,
     "parent_id": "uc-9e22813504",
     "size": 54,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-285affcbd4": {
     "draft_label": "Swift Apple Platform App Development",
+    "label": "Swift apps for Apple platforms",
     "level": 1,
     "non_coding": false,
     "parent_id": null,
     "size": 211,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-2e7087ffb8": {
     "draft_label": "Email outreach and automation workflows",
@@ -125,7 +128,7 @@
     "non_coding": false,
     "parent_id": "uc-192144736f",
     "size": 31,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-3178441f58": {
     "draft_label": "Multi-agent orchestration and workflows",
@@ -133,7 +136,7 @@
     "non_coding": false,
     "parent_id": null,
     "size": 768,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-3a84c6589d": {
     "draft_label": "Spec-driven implementation task planning",
@@ -141,7 +144,7 @@
     "non_coding": false,
     "parent_id": "uc-9e22813504",
     "size": 60,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-3e529c7c66": {
     "draft_label": "Laravel Pest testing and PHP development",
@@ -149,7 +152,7 @@
     "non_coding": false,
     "parent_id": "uc-753db6f1b2",
     "size": 24,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-3f25c19de4": {
     "draft_label": "NanoClaw channel and install setup",
@@ -157,7 +160,7 @@
     "non_coding": false,
     "parent_id": null,
     "size": 118,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-4ceca9e8c1": {
     "draft_label": "React frontend web app development",
@@ -165,7 +168,7 @@
     "non_coding": false,
     "parent_id": null,
     "size": 569,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-5040359399": {
     "draft_label": "Agent session workflow management tooling",
@@ -173,7 +176,7 @@
     "non_coding": false,
     "parent_id": null,
     "size": 327,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-52003a99e0": {
     "draft_label": "Astro website maintenance",
@@ -181,7 +184,7 @@
     "non_coding": false,
     "parent_id": "uc-7a3e4c298d",
     "size": 51,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-5a65641bfc": {
     "draft_label": "Laravel Livewire Boost app development",
@@ -189,7 +192,7 @@
     "non_coding": false,
     "parent_id": "uc-753db6f1b2",
     "size": 27,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-6145973143": {
     "draft_label": "Scientific and technical simulation projects",
@@ -197,7 +200,7 @@
     "non_coding": false,
     "parent_id": "uc-c2c197ceb0",
     "size": 118,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-71e8307d09": {
     "draft_label": "Embedded firmware and hardware development",
@@ -205,7 +208,7 @@
     "non_coding": false,
     "parent_id": "uc-c2c197ceb0",
     "size": 75,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-753db6f1b2": {
     "draft_label": "Laravel PHP application development",
@@ -213,7 +216,7 @@
     "non_coding": false,
     "parent_id": null,
     "size": 163,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-7a3e4c298d": {
     "draft_label": "Website and WordPress theme development",
@@ -221,7 +224,7 @@
     "non_coding": false,
     "parent_id": null,
     "size": 339,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-7df44ea65c": {
     "draft_label": "Claude-flow swarm CLI management",
@@ -229,7 +232,7 @@
     "non_coding": false,
     "parent_id": "uc-dcd3c551b3",
     "size": 15,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-804686f366": {
     "draft_label": "Laravel admin app development",
@@ -237,7 +240,7 @@
     "non_coding": false,
     "parent_id": "uc-753db6f1b2",
     "size": 32,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-91204af37b": {
     "draft_label": "Session handoff document writing",
@@ -245,7 +248,7 @@
     "non_coding": false,
     "parent_id": "uc-5040359399",
     "size": 29,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-95be6a76b2": {
     "draft_label": "Git commit and branching workflows",
@@ -253,7 +256,7 @@
     "non_coding": false,
     "parent_id": "uc-0aa8d7ae0f",
     "size": 132,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-968855db03": {
     "draft_label": "Session handoff and context checkpointing",
@@ -261,7 +264,7 @@
     "non_coding": false,
     "parent_id": "uc-5040359399",
     "size": 19,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-9bf426ca81": {
     "draft_label": "Debugging and root-cause analysis",
@@ -269,7 +272,7 @@
     "non_coding": false,
     "parent_id": null,
     "size": 356,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-9e22813504": {
     "draft_label": "Spec-driven development workflow orchestration",
@@ -277,7 +280,7 @@
     "non_coding": false,
     "parent_id": null,
     "size": 1283,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-a2cde901a9": {
     "draft_label": "Static website maintenance",
@@ -285,23 +288,25 @@
     "non_coding": false,
     "parent_id": "uc-7a3e4c298d",
     "size": 57,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-a41dc64bff": {
     "draft_label": "Diverse personal and academic projects",
+    "label": "Personal knowledge and research",
     "level": 1,
     "non_coding": false,
     "parent_id": null,
     "size": 1013,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-a980a656e7": {
     "draft_label": "Game and Mod Development Projects",
+    "label": "Game and mod development",
     "level": 1,
     "non_coding": false,
     "parent_id": null,
     "size": 555,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-afb79b977f": {
     "draft_label": "Social media marketing and content strategy",
@@ -309,15 +314,16 @@
     "non_coding": true,
     "parent_id": "uc-192144736f",
     "size": 56,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-b19dea9970": {
     "draft_label": "Code Review and Quality Assurance",
+    "label": "Code review and quality assurance",
     "level": 1,
     "non_coding": false,
     "parent_id": null,
     "size": 680,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-b86901a484": {
     "draft_label": "Database and backend data engineering",
@@ -325,15 +331,16 @@
     "non_coding": false,
     "parent_id": null,
     "size": 297,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-c2c197ceb0": {
     "draft_label": "Diverse personal and research software projects",
+    "label": "Scientific, hardware and research software",
     "level": 1,
     "non_coding": false,
     "parent_id": null,
     "size": 797,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-c3092e03b8": {
     "draft_label": "GitHub issue and PR workflow management",
@@ -341,7 +348,7 @@
     "non_coding": false,
     "parent_id": "uc-0aa8d7ae0f",
     "size": 123,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-c3e5a9457c": {
     "draft_label": "Docker containerization and deployment",
@@ -349,15 +356,16 @@
     "non_coding": false,
     "parent_id": "uc-0dfeb9eac7",
     "size": 34,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-c4abe92bd4": {
     "draft_label": "AI-powered mobile and web apps",
+    "label": "Mobile app development",
     "level": 1,
     "non_coding": false,
     "parent_id": null,
     "size": 359,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-c7d891de35": {
     "draft_label": "Code review and verification",
@@ -365,7 +373,7 @@
     "non_coding": false,
     "parent_id": "uc-b19dea9970",
     "size": 125,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-cac9db750f": {
     "draft_label": "Rust and Tauri application development",
@@ -373,7 +381,7 @@
     "non_coding": false,
     "parent_id": null,
     "size": 1062,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-d8ac120d11": {
     "draft_label": "Rust systems and tooling development",
@@ -381,7 +389,7 @@
     "non_coding": false,
     "parent_id": "uc-cac9db750f",
     "size": 138,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-dcd3c551b3": {
     "draft_label": "Multi-agent swarm orchestration tooling",
@@ -389,7 +397,7 @@
     "non_coding": false,
     "parent_id": null,
     "size": 347,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-e16a4f35b7": {
     "draft_label": "Mobile app development (Expo/Flutter)",
@@ -397,7 +405,7 @@
     "non_coding": false,
     "parent_id": "uc-c4abe92bd4",
     "size": 14,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-e799a16a0f": {
     "draft_label": "Terraform infrastructure and cloud deployment",
@@ -405,7 +413,7 @@
     "non_coding": false,
     "parent_id": "uc-0dfeb9eac7",
     "size": 47,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-e830815369": {
     "draft_label": "Full-stack web app development",
@@ -413,7 +421,7 @@
     "non_coding": false,
     "parent_id": null,
     "size": 624,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-e9ae03d7e6": {
     "draft_label": "React shadcn UI component development",
@@ -421,7 +429,7 @@
     "non_coding": false,
     "parent_id": "uc-4ceca9e8c1",
     "size": 48,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-eda5759ec4": {
     "draft_label": "Codebase Audits and Fix Implementation",
@@ -429,7 +437,7 @@
     "non_coding": false,
     "parent_id": "uc-b19dea9970",
     "size": 27,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-f46abf98ac": {
     "draft_label": "FastAPI web app development",
@@ -437,15 +445,16 @@
     "non_coding": false,
     "parent_id": null,
     "size": 348,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-fdb971f44b": {
     "draft_label": "Academic and Technical Research Review",
+    "label": "Academic and technical research review",
     "level": 2,
     "non_coding": true,
     "parent_id": "uc-a41dc64bff",
     "size": 55,
-    "status": "draft"
+    "status": "approved"
   },
   "uc-febd55da41": {
     "draft_label": "Add NanoClaw messaging channel integrations",
@@ -453,6 +462,6 @@
     "non_coding": false,
     "parent_id": "uc-3f25c19de4",
     "size": 53,
-    "status": "draft"
+    "status": "approved"
   }
 }
