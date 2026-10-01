@@ -1,6 +1,6 @@
 import numpy as np
 
-from pipeline.cluster import nn_distance, two_level
+from pipeline.cluster import assign_noise, nn_distance, two_level
 from pipeline.embed import HashEmbedder
 
 THEMES = (["Uses Claude to build and maintain a web application."] * 4
@@ -32,7 +32,8 @@ def test_large_input_goes_through_umap_and_finds_both_blobs():
     b[:, 1] += 1
     X = np.vstack([a, b])
     X /= np.linalg.norm(X, axis=1, keepdims=True)
-    l1, _ = two_level(X)
+    raw, _ = two_level(X)  # leaf selection leaves noise by design; S7 assigns it to the nearest domain
+    l1 = assign_noise(X, raw)
     mode = lambda xs: max(set(xs.tolist()), key=xs.tolist().count)
     assert mode(l1[:40]) != -1 and mode(l1[40:]) != -1 and mode(l1[:40]) != mode(l1[40:])
 
@@ -45,3 +46,11 @@ def test_single_point_is_noise():
 def test_nn_distance():
     X = np.array([[1.0, 0.0], [1.0, 0.0], [0.0, 1.0]])
     assert np.allclose(nn_distance(X), [0.0, 0.0, 1.0])
+
+
+def test_assign_noise_moves_only_points_near_a_centroid():
+    X = np.array([[1.0, 0.0], [0.99, 0.141], [0.0, 1.0], [0.995, 0.0998], [-1.0, 0.0]])
+    X /= np.linalg.norm(X, axis=1, keepdims=True)
+    labels = np.array([0, 0, 1, -1, -1])
+    assert assign_noise(X, labels, min_sim=0.9).tolist() == [0, 0, 1, 0, -1]
+    assert assign_noise(X, np.full(5, -1)).tolist() == [-1] * 5

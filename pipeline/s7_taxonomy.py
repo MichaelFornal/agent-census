@@ -8,7 +8,7 @@ from collections import Counter
 
 import numpy as np
 
-from pipeline.cluster import nn_distance, two_level
+from pipeline.cluster import ASSIGN_SIM, assign_noise, nn_distance, two_level
 from pipeline.context import Ctx, Opts
 from pipeline.detectors.catalog import TECHNIQUES
 from pipeline.embed import make_embedder
@@ -17,7 +17,7 @@ from pipeline.llm.cache import CachedLLM, make_llm
 from pipeline.llm.client import LLMLimitReached
 from pipeline.runner import RunStats, StopStage, run_whole
 
-VERSION = 1
+VERSION = 2  # leaf selection at level 1, noise assigned to the nearest domain
 LABEL_MODEL = "sonnet"
 LABEL_SAMPLE = 12
 UNCHARTED_MAX_SIZE = 3
@@ -67,7 +67,8 @@ def taxonomy(ctx: Ctx, sem: list[dict]) -> dict[str, list[dict]]:
     emb = make_embedder(ctx.embedder)
     llm = CachedLLM(make_llm(ctx.llm), ctx.root / "llm_cache.jsonl")
     X = emb.encode([s["use_case"] for s in sem])
-    l1, l2 = two_level(X)
+    raw_l1, l2 = two_level(X)
+    l1 = assign_noise(X, raw_l1)
     groups: dict[tuple[int, int | None], list[int]] = {}
     for i in range(len(sem)):
         if l1[i] == -1:
@@ -89,9 +90,9 @@ def taxonomy(ctx: Ctx, sem: list[dict]) -> dict[str, list[dict]]:
         if l1[i] != -1:
             leaf = (int(l1[i]), int(l2[i]) if l2[i] != -1 else None)
             out["uc_membership"].append({"cluster_id": s["cluster_id"], "use_case_id": ids[leaf]})
-    sizes = Counter(int(x) for x in l1 if x != -1)
+    sizes = Counter(int(x) for x in raw_l1 if x != -1)
     nn = nn_distance(X)
-    candidates = [i for i in range(len(sem)) if l1[i] == -1 or sizes[int(l1[i])] <= UNCHARTED_MAX_SIZE]
+    candidates = [i for i in range(len(sem)) if raw_l1[i] == -1 or sizes[int(raw_l1[i])] <= UNCHARTED_MAX_SIZE]
     candidates.sort(key=lambda i: (-nn[i], sem[i]["cluster_id"]))
     out["uncharted"] = [{"cluster_id": sem[i]["cluster_id"], "use_case": sem[i]["use_case"],
                          "nn_distance": float(nn[i]), "rank": r + 1}
@@ -106,7 +107,7 @@ def run(ctx: Ctx, opts: Opts) -> RunStats:
                  key=lambda s: s["cluster_id"])
     fp = unit_key(VERSION, ctx.embedder, ctx.llm,
                   [(t.id, t.label, t.definition) for t in TECHNIQUES.values()],
-                  (LABEL_MODEL, LABEL_SYSTEM, LABEL_SAMPLE, CANDIDATE_SIM, UNCHARTED_MAX_SIZE, UNCHARTED_LIMIT),
+                  (LABEL_MODEL, LABEL_SYSTEM, LABEL_SAMPLE, CANDIDATE_SIM, UNCHARTED_MAX_SIZE, UNCHARTED_LIMIT, ASSIGN_SIM),
                   [(s["cluster_id"], s["use_case"], s["techniques_json"]) for s in sem])
 
     def work() -> dict[str, list[dict]]:
