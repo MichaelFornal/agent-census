@@ -104,6 +104,9 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("--pass", dest="pass_id", choices=["a", "b"], default="a")
     s.add_argument("--detach", action="store_true",
                    help="run in a new session, so the supervisor outlives the shell that started it")
+    sn = sub.add_parser("snapshot-s1", parents=[common],
+                        help="copy another edition's journaled S1 output into this one (a preview edition)")
+    sn.add_argument("--from", dest="source", required=True)
     f = sub.add_parser("facts", parents=[common])
     f.add_argument("--check", action="store_true")
     f.add_argument("--site-data", type=Path, help="with --check, where the site's copy of facts.json lives")
@@ -164,6 +167,10 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         from pipeline.supervise import supervise
         return supervise(ctx, args.stage, run_args)
+    elif args.cmd == "snapshot-s1":
+        from pipeline.snapshot import snapshot_s1
+        copied, skipped = snapshot_s1(make_ctx(args.source), ctx)
+        print(f"snapshot-s1 from {args.source}: copied {copied} parts, {skipped} already present")
     elif args.cmd == "facts":
         if args.site_data:
             ctx.site_data = args.site_data
