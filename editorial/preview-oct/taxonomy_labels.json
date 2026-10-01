@@ -1,0 +1,162 @@
+{
+  "uc-09b9e50dec": {
+    "draft_label": "Frontend design and project skills",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 602,
+    "status": "draft"
+  },
+  "uc-281675d7fa": {
+    "draft_label": "Claude Code project guidance files",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 2327,
+    "status": "draft"
+  },
+  "uc-2b32d44bb4": {
+    "draft_label": "Next.js project context guidance files",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-c87561727c",
+    "size": 104,
+    "status": "draft"
+  },
+  "uc-36035745d1": {
+    "draft_label": "Swift Apple platform project guides",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 243,
+    "status": "draft"
+  },
+  "uc-530c867a98": {
+    "draft_label": "Claude Code workflow commands and skills",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 2036,
+    "status": "draft"
+  },
+  "uc-5d5cb4150e": {
+    "draft_label": "Custom slash command definitions",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-530c867a98",
+    "size": 533,
+    "status": "draft"
+  },
+  "uc-6489e6ea05": {
+    "draft_label": "Project context and agent configuration files",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 1668,
+    "status": "draft"
+  },
+  "uc-7c80b26c4c": {
+    "draft_label": "Web app project CLAUDE.md guides",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-c87561727c",
+    "size": 75,
+    "status": "draft"
+  },
+  "uc-88a28323c5": {
+    "draft_label": "Game project CLAUDE.md guidance",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 348,
+    "status": "draft"
+  },
+  "uc-987f5d12be": {
+    "draft_label": "Agent skills and workflow orchestration",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 1229,
+    "status": "draft"
+  },
+  "uc-a0ea297935": {
+    "draft_label": "NanoClaw channel installation skills",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 119,
+    "status": "draft"
+  },
+  "uc-ae0789bb88": {
+    "draft_label": "Project CLAUDE.md context files",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 253,
+    "status": "draft"
+  },
+  "uc-c1552127a5": {
+    "draft_label": "React frontend project conventions",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-c87561727c",
+    "size": 102,
+    "status": "draft"
+  },
+  "uc-c87561727c": {
+    "draft_label": "Project onboarding CLAUDE.md guides",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 1946,
+    "status": "draft"
+  },
+  "uc-ccef5dd072": {
+    "draft_label": "Project-specific dev context and guides",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 1047,
+    "status": "draft"
+  },
+  "uc-d5465c178e": {
+    "draft_label": "Git and PR workflow automation commands",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-530c867a98",
+    "size": 120,
+    "status": "draft"
+  },
+  "uc-dc2cfc0cd8": {
+    "draft_label": "Claude Code agent and skill definitions",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 1104,
+    "status": "draft"
+  },
+  "uc-e037a6d6e2": {
+    "draft_label": "Specialized subagent persona definitions",
+    "level": 1,
+    "non_coding": false,
+    "parent_id": null,
+    "size": 829,
+    "status": "draft"
+  },
+  "uc-f16faa1f67": {
+    "draft_label": "Swift Apple platform app guides",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-36035745d1",
+    "size": 93,
+    "status": "draft"
+  },
+  "uc-f3e5f8f99a": {
+    "draft_label": "Point-Free Swift library skills",
+    "level": 2,
+    "non_coding": false,
+    "parent_id": "uc-36035745d1",
+    "size": 14,
+    "status": "draft"
+  }
+}
