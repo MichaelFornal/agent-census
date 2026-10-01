@@ -1,23 +1,98 @@
 ---
 import { edition } from "../lib/facts";
-interface Props { title: string }
-const { title } = Astro.props;
+import { REMOVAL_URL, REPO_URL } from "../lib/config";
+interface Props { title: string; description?: string }
+const { title, description = "How public GitHub repos set up Claude Code: CLAUDE.md, skills, subagents, hooks, permissions and MCP." } = Astro.props;
+const pageTitle = title === "Agent Census" ? title : `${title} | Agent Census`;
+const path = Astro.url.pathname;
+const nav = [
+  { href: "/", label: "Findings" },
+  { href: "/techniques/", label: "Techniques" },
+  { href: "/methodology/", label: "Methodology" },
+];
+const current = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
+const frozen = edition.frozen_at.slice(0, "yyyy-mm-dd".length);
 ---
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
+    <meta name="description" content={description} />
+    <title>{pageTitle}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif&family=JetBrains+Mono:wght@400&display=swap" />
     <style is:global>
-      body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 1rem; line-height: 1.5; }
-      .headline { display: flex; gap: 2rem; flex-wrap: wrap; font-size: 1.1rem; }
-      .fact { font-weight: 700; }
-      figure.card pre { overflow-x: auto; background: #f4f4f4; padding: 0.75rem; font-size: 0.85rem; }
+      :root {
+        --paper: #f3f5f6; --surface: #ffffff; --ink: #17232e; --muted: #56677a; --rule: #d3dae0;
+        --accent: #2b6c8f; --accent-soft: #dce9f0; --code-bg: #eaeef1;
+        --serif: "Instrument Serif", Georgia, serif;
+        --sans: "Instrument Sans", system-ui, sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, monospace;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #111a21; --surface: #18232c; --ink: #e2e8ec; --muted: #98a8b5; --rule: #2b3843;
+          --accent: #82b6d3; --accent-soft: #1f3442; --code-bg: #0c1318;
+          color-scheme: dark;
+        }
+      }
+      * { box-sizing: border-box; }
+      html { background: var(--paper); }
+      body {
+        margin: 0; color: var(--ink); background: var(--paper);
+        font: 400 1.0625rem/1.6 var(--sans); -webkit-font-smoothing: antialiased;
+      }
+      a { color: var(--accent); text-underline-offset: 0.18em; text-decoration-thickness: 1px; }
+      a:hover { text-decoration-thickness: 2px; }
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .wrap { max-width: 50rem; margin: 0 auto; padding: 0 1rem; }
+      .preview { background: var(--accent-soft); color: var(--ink); font-size: 0.875rem; padding: 0.5rem 0; }
+      .site-header { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; align-items: baseline; justify-content: space-between; padding: 1.5rem 0 1rem; border-bottom: 1px solid var(--rule); }
+      .wordmark { font: 400 1.6rem/1 var(--serif); color: var(--ink); text-decoration: none; }
+      .site-header nav { display: flex; gap: 1.25rem; font-size: 0.95rem; }
+      .site-header nav a { color: var(--muted); text-decoration: none; }
+      .site-header nav a[aria-current="page"] { color: var(--ink); font-weight: 600; }
+      main { padding: 2rem 0 3rem; }
+      h1, h2 { font-family: var(--serif); font-weight: 400; line-height: 1.15; }
+      h1 { font-size: clamp(2rem, 5vw, 2.75rem); margin: 0 0 1rem; }
+      h2 { font-size: 1.75rem; margin: 3rem 0 0.5rem; }
+      h3 { font-size: 1rem; font-weight: 600; margin: 1.75rem 0 0.5rem; }
+      p { max-width: 38rem; }
+      .lede { color: var(--muted); }
+      .fact { font-variant-numeric: tabular-nums; font-weight: 600; }
+      figure { margin: 1.5rem 0; }
+      figure.card { background: var(--surface); border: 1px solid var(--rule); border-left: 3px solid var(--accent); }
+      figure.card pre {
+        margin: 0; padding: 0.875rem 1rem; max-height: 22rem; overflow: auto; background: var(--code-bg);
+        font: 400 0.8rem/1.55 var(--mono); white-space: pre;
+      }
+      figure.card figcaption { padding: 0.5rem 1rem; font-size: 0.85rem; color: var(--muted); }
+      figure.chart figcaption { font-size: 0.9rem; color: var(--muted); margin-bottom: 0.5rem; }
+      figure.chart svg { max-width: 100%; height: auto; overflow: visible; }
+      figure.chart { overflow-x: auto; }
+      .site-footer { border-top: 1px solid var(--rule); padding: 1.25rem 0 2.5rem; font-size: 0.875rem; color: var(--muted); }
+      .site-footer p { margin: 0.25rem 0; max-width: none; }
     </style>
   </head>
   <body>
-    <header><a href="/">Agent Census</a> · Edition {edition.edition}, frozen {edition.frozen_at}</header>
-    <main><slot /></main>
+    <div class="preview">
+      <div class="wrap">Preview edition. These numbers come from a small sample of repos, not the full census, which is still being collected.</div>
+    </div>
+    <div class="wrap">
+      <header class="site-header">
+        <a class="wordmark" href="/">Agent Census</a>
+        <nav aria-label="Main">
+          {nav.map((n) => <a href={n.href} aria-current={current(n.href) ? "page" : undefined}>{n.label}</a>)}
+        </nav>
+      </header>
+      <main><slot /></main>
+      <footer class="site-footer">
+        <p>Edition {edition.edition}, frozen {frozen}. Every number on this site is computed by a named query over that frozen edition.</p>
+        <p>Is your repo here and you want it out? <a href={REMOVAL_URL}>Request removal</a>. Source and queries: <a href={REPO_URL}>GitHub</a>.</p>
+      </footer>
+    </div>
   </body>
 </html>

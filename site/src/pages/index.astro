@@ -4,6 +4,8 @@ import Fact from "../components/Fact.astro";
 import BarChart from "../components/BarChart.astro";
 import EvidenceCard from "../components/EvidenceCard.astro";
 import { series } from "../lib/facts";
+import { SHOW_USE_CASES } from "../lib/config";
+import { prevalenceOf, techniques } from "../lib/techniques";
 import anatomy from "../data/findings/anatomy.json";
 
 const KIND_LABELS: Record<string, string> = {
@@ -11,32 +13,50 @@ const KIND_LABELS: Record<string, string> = {
   settings: "settings.json", settings_local: "settings.local.json", mcp: ".mcp.json",
   plugin: "Plugin manifest", marketplace: "Marketplace manifest",
 };
-const rows = series<{ kind: string; share: number }>("component_share")
+const anatomyRows = series<{ kind: string; share: number }>("component_share")
   .map((r) => ({ label: KIND_LABELS[r.kind] ?? r.kind, share: r.share }));
+const mostCommon = [...anatomyRows].sort((a, b) => b.share - a.share)[0];
+const techniqueRows = techniques
+  .map((t) => ({ label: t.label, share: prevalenceOf(t.id)?.share ?? 0, href: `/techniques/${t.id}/` }))
+  .filter((r) => r.share > 0);
 type Named = { id: string; label: string };
-const techniques = Object.values(import.meta.glob<{ default: Named }>("../data/techniques/*.json", { eager: true }))
-  .map((m) => m.default);
-const useCases = Object.values(import.meta.glob<{ default: Named }>("../data/use-cases/*.json", { eager: true }))
-  .map((m) => m.default);
+const useCases = SHOW_USE_CASES
+  ? Object.values(import.meta.glob<{ default: Named }>("../data/use-cases/*.json", { eager: true })).map((m) => m.default)
+  : [];
 ---
 <Base title="Agent Census">
-  <section class="headline">
-    <div><Fact id="harnesses_total" /> harnesses</div>
-    <div><Fact id="distinct_artifacts" /> distinct artifacts</div>
-    <div><Fact id="copy_rate" format="pct" /> of files are copies</div>
-  </section>
-  <section>
-    <h2>Adoption and anatomy</h2>
-    <p>Which parts of the Claude Code harness each repo uses.</p>
-    <BarChart rows={rows} title="Share of harnesses with each component" />
-    {anatomy.evidence.map((card) => <EvidenceCard card={card} />)}
-  </section>
-  <section>
-    <h2>Use cases</h2>
-    <ul>{useCases.map((u) => <li><a href={`/use-cases/${u.id}/`}>{u.label}</a></li>)}</ul>
-  </section>
-  <section>
-    <h2>Techniques</h2>
-    <ul>{techniques.map((t) => <li><a href={`/techniques/${t.id}/`}>{t.label}</a></li>)}</ul>
-  </section>
+  <h1 class="hero">
+    We read the Claude Code setups of <Fact id="harnesses_total" /> public GitHub repos.
+    They hold <Fact id="distinct_artifacts" /> distinct files, and <Fact id="copy_rate" format="pct" /> of
+    the files are copies of another file.
+  </h1>
+  <p class="lede">
+    A Claude Code setup, or harness, is everything a repo uses to steer the agent: CLAUDE.md, skills,
+    subagents, slash commands, hooks, settings and MCP servers. This census counts which parts people use
+    and how they wire them together.
+  </p>
+
+  <h2>What a setup is made of</h2>
+  <p>{mostCommon.label} is the most common part. Everything else is opt-in.</p>
+  <BarChart rows={anatomyRows} title="Share of harnesses that include each component" />
+  {anatomy.evidence.map((card) => <EvidenceCard card={card} />)}
+
+  <h2>Techniques people use</h2>
+  <p>
+    Each technique is found by a deterministic detector that reads the parsed files. Select a bar to see how
+    it is wired, with real examples.
+  </p>
+  <BarChart rows={techniqueRows} title="Share of harnesses using each technique" />
+  <p><a href="/techniques/">Browse all techniques</a></p>
+
+  {SHOW_USE_CASES && useCases.length > 0 && (
+    <>
+      <h2>Use cases</h2>
+      <ul>{useCases.map((u) => <li><a href={`/use-cases/${u.id}/`}>{u.label}</a></li>)}</ul>
+    </>
+  )}
 </Base>
+<style>
+  .hero { font-size: clamp(1.75rem, 4.2vw, 2.6rem); line-height: 1.2; max-width: 44rem; margin-top: 0.5rem; }
+  .hero :global(.fact) { font-weight: 400; color: var(--accent); }
+</style>

@@ -2,40 +2,46 @@
 import Base from "../../layouts/Base.astro";
 import EvidenceCard from "../../components/EvidenceCard.astro";
 import { fmt, series } from "../../lib/facts";
+import { SHOW_USE_CASES } from "../../lib/config";
+import { CATEGORY_LABELS, prevalenceOf, techniques, type Technique } from "../../lib/techniques";
 
-interface Card { repo: string | null; path: string; kind: string; permalink: string | null; excerpt: string | null }
-interface Technique {
-  id: string; label: string; category: string; definition: string; detection: string; private: boolean; evidence: Card[];
-}
 interface UseCase { id: string; label: string }
 
 export function getStaticPaths() {
-  const mods = import.meta.glob<{ default: Technique }>("../../data/techniques/*.json", { eager: true });
-  return Object.values(mods).map((m) => ({ params: { id: m.default.id }, props: { t: m.default } }));
+  return techniques.map((t) => ({ params: { id: t.id }, props: { t } }));
 }
 
 const { t } = Astro.props as { t: Technique };
-const prevalence = series<{ technique_id: string; harnesses: number; share: number }>("technique_prevalence")
-  .find((r) => r.technique_id === t.id);
-const ucLabels: Record<string, string> = Object.fromEntries(
-  Object.values(import.meta.glob<{ default: UseCase }>("../../data/use-cases/*.json", { eager: true }))
-    .map((m) => [m.default.id, m.default.label]));
+const prevalence = prevalenceOf(t.id);
+const ucLabels: Record<string, string> = SHOW_USE_CASES
+  ? Object.fromEntries(
+    Object.values(import.meta.glob<{ default: UseCase }>("../../data/use-cases/*.json", { eager: true }))
+      .map((m) => [m.default.id, m.default.label]))
+  : {};
 const usedBy = series<{ use_case_id: string; technique_id: string; harnesses: number }>("use_case_techniques")
   .filter((r) => r.technique_id === t.id && ucLabels[r.use_case_id]);
 const detected = t.detection === "deterministic"
   ? "by a deterministic detector over the parsed harness files" : "by an LLM judge";
-const prevalenceText = prevalence
-  ? `${fmt(prevalence.share, "pct")} of harnesses (${fmt(prevalence.harnesses, "int")})`
-  : "not seen in this edition";
 ---
-<Base title={t.label}>
+<Base title={t.label} description={t.definition}>
+  <p class="crumb"><a href="/techniques/">Techniques</a>, {CATEGORY_LABELS[t.category] ?? t.category}</p>
   <h1>{t.label}</h1>
   <p>{t.definition}</p>
-  <p>Detected {detected}. Validation score: not measured yet in this vertical slice.</p>
-  <p>Prevalence: {prevalenceText}</p>
-  {t.private && <p>Shown without repo names: permission settings appear only in aggregate.</p>}
+  {prevalence
+    ? <p class="stat"><span class="fact">{fmt(prevalence.share, "pct")}</span> of harnesses use it (<span class="fact">{fmt(prevalence.harnesses, "int")}</span>).</p>
+    : <p class="stat">Not seen in this edition.</p>}
+  <p class="lede">Detected {detected}. Its precision has not been audited yet in this preview.</p>
+  {t.private && <p class="lede">Permission settings appear only without repo names.</p>}
   <h2>How it's wired</h2>
   {t.evidence.length ? t.evidence.map((card) => <EvidenceCard card={card} />) : <p>No example in this edition.</p>}
-  <h2>Use cases that use it</h2>
-  <ul>{usedBy.map((r) => <li><a href={`/use-cases/${r.use_case_id}/`}>{ucLabels[r.use_case_id]}</a> ({fmt(r.harnesses, "int")} harnesses)</li>)}</ul>
+  {usedBy.length > 0 && (
+    <>
+      <h2>Use cases that use it</h2>
+      <ul>{usedBy.map((r) => <li><a href={`/use-cases/${r.use_case_id}/`}>{ucLabels[r.use_case_id]}</a> ({fmt(r.harnesses, "int")} harnesses)</li>)}</ul>
+    </>
+  )}
 </Base>
+<style>
+  .crumb { font-size: 0.9rem; color: var(--muted); margin: 0 0 0.5rem; }
+  .stat { font-size: 1.25rem; }
+</style>

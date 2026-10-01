@@ -1,0 +1,31 @@
+name: Removal request
+description: Ask for a repo to be left out of Agent Census.
+title: "Removal request: "
+labels: ["removal-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The repo is excluded from the next build and from every later edition. You don't need to give a reason.
+  - type: input
+    id: repo
+    attributes:
+      label: Repository
+      description: owner/name of the repo to remove.
+      placeholder: octocat/hello-world
+    validations:
+      required: true
+  - type: dropdown
+    id: relation
+    attributes:
+      label: Your relation to the repo
+      options:
+        - I own or maintain it
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Optional. For example, a specific page or excerpt you saw it on.

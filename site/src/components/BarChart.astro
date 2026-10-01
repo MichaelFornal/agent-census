@@ -1,15 +1,33 @@
 ---
-interface Props { rows: { label: string; share: number }[]; title: string }
+interface Props { rows: { label: string; share: number; href?: string }[]; title: string }
 const { rows, title } = Astro.props;
 ---
 <figure class="chart" data-rows={JSON.stringify(rows)}>
   <figcaption>{title}</figcaption>
 </figure>
+<style is:global>
+  figure.chart g[aria-label="bar"] rect { fill: var(--accent); }
+  figure.chart g[aria-label="bar"] a:hover rect { opacity: 0.75; }
+  figure.chart svg text { fill: var(--ink); }
+  figure.chart svg [aria-label="x-axis tick"] path, figure.chart svg [aria-label="y-axis tick"] path { stroke: var(--rule); }
+</style>
 <script>
   import * as Plot from "@observablehq/plot";
   for (const el of document.querySelectorAll<HTMLElement>("figure.chart")) {
     const rows = JSON.parse(el.dataset.rows ?? "[]");
-    el.append(Plot.barX(rows, { x: "share", y: "label", sort: { y: "-x" } })
-      .plot({ x: { percent: true, label: "Share of harnesses (%)" }, marginLeft: 160 }));
+    const longest = Math.max(...rows.map((r: { label: string }) => r.label.length));
+    el.append(Plot.plot({
+      x: { percent: true, label: "Share of harnesses (%)", grid: true, labelAnchor: "center", labelArrow: "none", labelOffset: 40 },
+      y: { label: null },
+      marginLeft: Math.min(300, 24 + longest * 9),
+      marginBottom: 48,
+      height: 40 + rows.length * 26,
+      width: Math.min(el.clientWidth || 640, 760),
+      style: { background: "transparent", color: "inherit", fontFamily: "var(--sans)", fontSize: "inherit" },
+      marks: [
+        Plot.barX(rows, { x: "share", y: "label", href: "href", sort: { y: "-x" }, tip: true }),
+        Plot.ruleX([0]),
+      ],
+    }));
   }
 </script>

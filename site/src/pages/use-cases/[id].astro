@@ -2,6 +2,7 @@
 import Base from "../../layouts/Base.astro";
 import EvidenceCard from "../../components/EvidenceCard.astro";
 import { fmt, series } from "../../lib/facts";
+import { SHOW_USE_CASES } from "../../lib/config";
 
 interface Card { repo: string | null; path: string; kind: string; permalink: string | null; excerpt: string | null }
 interface UseCase {
@@ -11,6 +12,7 @@ interface UseCase {
 interface Named { id: string; label: string }
 
 export function getStaticPaths() {
+  if (!SHOW_USE_CASES) return [];
   const mods = import.meta.glob<{ default: UseCase }>("../../data/use-cases/*.json", { eager: true });
   return Object.values(mods).map((m) => ({ params: { id: m.default.id }, props: { u: m.default } }));
 }

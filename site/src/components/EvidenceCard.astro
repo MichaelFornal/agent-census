@@ -1,13 +1,21 @@
 ---
-interface Card { repo: string | null; path: string; kind: string; permalink: string | null; excerpt: string | null }
+import type { Card } from "../lib/techniques";
 interface Props { card: Card }
 const { card } = Astro.props;
+// Excerpts are cut from inside a file, so drop the indentation they share.
+function dedent(text: string): string {
+  const lines = text.split("\n");
+  const indents = lines.filter((l) => l.trim()).map((l) => l.length - l.trimStart().length);
+  const cut = indents.length ? Math.min(...indents) : 0;
+  return lines.map((l) => l.slice(cut)).join("\n");
+}
+const excerpt = card.excerpt === null ? null : dedent(card.excerpt);
 ---
 <figure class="card">
-  {card.excerpt !== null && <pre><code>{card.excerpt}</code></pre>}
+  {excerpt !== null && <pre><code>{excerpt}</code></pre>}
   <figcaption>
     {card.permalink
-      ? <a href={card.permalink}>{card.repo} · {card.path}</a>
-      : <span>Anonymized · {card.path}</span>}
+      ? <><a href={card.permalink}>{card.repo}</a>, <code>{card.path}</code></>
+      : <span>Repo withheld, <code>{card.path}</code></span>}
   </figcaption>
 </figure>

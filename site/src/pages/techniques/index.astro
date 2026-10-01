@@ -1,0 +1,43 @@
+---
+import Base from "../../layouts/Base.astro";
+import { fmt } from "../../lib/facts";
+import { CATEGORY_LABELS, prevalenceOf, techniques } from "../../lib/techniques";
+
+const groups = Object.entries(CATEGORY_LABELS)
+  .map(([key, label]) => ({
+    label,
+    items: techniques
+      .filter((t) => t.category === key)
+      .sort((a, b) => (prevalenceOf(b.id)?.share ?? 0) - (prevalenceOf(a.id)?.share ?? 0)),
+  }))
+  .filter((g) => g.items.length > 0);
+const share = (id: string) => {
+  const p = prevalenceOf(id);
+  return p ? `${fmt(p.share, "pct")} of harnesses` : "not seen in this edition";
+};
+---
+<Base title="Techniques" description="Claude Code techniques found in public repos, with how each is detected and real examples.">
+  <h1>Techniques</h1>
+  <p class="lede">The ways people wire up Claude Code, grouped by the part of the harness they live in.</p>
+  {groups.map((g) => (
+    <section>
+      <h2>{g.label}</h2>
+      <ul class="tlist">
+        {g.items.map((t) => (
+          <li>
+            <a href={`/techniques/${t.id}/`}>{t.label}</a>
+            <span class="share">{share(t.id)}</span>
+            <p>{t.definition}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
+</Base>
+<style>
+  .tlist { list-style: none; padding: 0; margin: 0; }
+  .tlist li { padding: 0.75rem 0; border-bottom: 1px solid var(--rule); }
+  .tlist a { font-weight: 600; }
+  .share { color: var(--muted); font-size: 0.9rem; margin-left: 0.5rem; font-variant-numeric: tabular-nums; }
+  .tlist p { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.95rem; }
+</style>

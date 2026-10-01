@@ -1,0 +1,85 @@
+---
+import Base from "../layouts/Base.astro";
+import Fact from "../components/Fact.astro";
+import { edition } from "../lib/facts";
+import { REMOVAL_URL, REPO_URL } from "../lib/config";
+import doc from "../data/facts.json";
+
+const queries = Object.values((doc as unknown as { facts: Record<string, { id: string; query_file: string }> }).facts)
+  .map((f) => ({ id: f.id, href: `${REPO_URL}/blob/main/${f.query_file}` }))
+  .sort((a, b) => a.id.localeCompare(b.id));
+---
+<Base title="Methodology" description="How Agent Census finds, collects, parses and counts Claude Code setups, and what it cannot see.">
+  <h1>Methodology</h1>
+  <p class="lede">
+    How the census finds Claude Code setups, what it does with them, and what it cannot see.
+  </p>
+
+  <h2>This preview</h2>
+  <p>
+    This edition is a small vertical slice: <Fact id="harnesses_total" /> harnesses holding <Fact id="artifacts_total" />
+    parsed files, found by searching for non-fork repos only. It exists to show
+    the pipeline working end to end. The full census enumerates every indexed repo, forks included, and is
+    still being collected.
+  </p>
+
+  <h2>The pipeline</h2>
+  <ol class="steps">
+    <li><strong>Discover.</strong> GitHub code search for CLAUDE.md, <code>.claude/</code>, <code>.mcp.json</code> and
+      plugin manifests. Search caps every query, so the crawler splits each query by file size until every
+      slice fits, and records whatever cannot be split further as unreachable.</li>
+    <li><strong>Harvest.</strong> For each repo found, fetch the harness files and repo metadata, including the
+      commit that every example on this site links to. Secrets are redacted before anything is stored.</li>
+    <li><strong>Parse.</strong> One parser per file kind: CLAUDE.md sections and imports, settings permissions and
+      hooks, skill, agent and command frontmatter, MCP servers, plugin manifests. Malformed files are kept
+      and labelled, never dropped.</li>
+    <li><strong>Deduplicate.</strong> Exact matches, then normalized text, then near-duplicates by MinHash, plus a
+      name key for skills whose text has drifted. This is where the copy rate comes from.</li>
+    <li><strong>Detect techniques.</strong> Deterministic detectors read the parsed files and record evidence for
+      each technique they find.</li>
+    <li><strong>Describe.</strong> A language model reads one representative of each distinct file and says what
+      Claude is being made to do. Any quote it gives must appear verbatim in the file, or the answer is
+      rejected.</li>
+    <li><strong>Group.</strong> Those descriptions are embedded and clustered into use cases. In this preview the
+      clusters were too coarse to publish, so use-case pages are off until the full edition.</li>
+    <li><strong>Freeze and count.</strong> The edition is frozen and hashed, and every number on the site is
+      computed by a named SQL query over the frozen tables. A check re-runs each query and fails the build on
+      any drift.</li>
+  </ol>
+
+  <h2>Validation</h2>
+  <p>
+    The full edition is validated by machine agreement and planted canaries, not by human labels: two
+    independent model passes with agreement scores, synthetic harnesses with known answers run through the
+    whole pipeline, and a model audit of each detector's hits and misses. None of that has run on this
+    preview, so technique counts here are raw detector output.
+  </p>
+
+  <h2>What the census cannot see</h2>
+  <ul>
+    <li>Code search indexes the default branch of public repos, and not all of them. This is a census of
+      indexed public default branches.</li>
+    <li>Some file sizes have more matches than search will return, so a share of files cannot be reached.
+      The full edition counts and publishes them.</li>
+    <li>Some repos are deleted or made private between discovery and harvest. They are recorded as missing.</li>
+    <li>Every number is for one frozen point in time. Nothing here is live.</li>
+  </ul>
+
+  <h2>Privacy</h2>
+  <p>
+    Secrets are redacted before storage. Permission settings are reported only in aggregate, never with a
+    repo name. Raw file contents are not redistributed in bulk; examples are short excerpts with a link to the
+    exact commit. To have a repo left out of future editions, <a href={REMOVAL_URL}>open a removal request</a>.
+  </p>
+
+  <h2>Queries behind the numbers</h2>
+  <p>Edition {edition.edition}, hash <code class="hash">{edition.edition_hash}</code>.</p>
+  <ul class="queries">{queries.map((q) => <li><a href={q.href}><code>{q.id}</code></a></li>)}</ul>
+</Base>
+<style>
+  .steps { padding-left: 1.25rem; max-width: 40rem; }
+  .steps li { margin-bottom: 0.75rem; }
+  .hash { word-break: break-all; font-size: 0.85rem; }
+  .queries { columns: 2; padding-left: 1.25rem; }
+  code { font-family: var(--mono); font-size: 0.875em; }
+</style>
