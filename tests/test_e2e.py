@@ -1,5 +1,6 @@
 import hashlib
 import json
+import sqlite3
 
 import zstandard
 from helpers import FIXTURES
@@ -55,18 +56,21 @@ def test_fixture_edition_end_to_end(tmp_path, isolated_data):
     again = json.loads(facts_file.read_text())["facts"]
     assert {k: v["value"] for k, v in again.items()} == {k: v["value"] for k, v in facts.items()}
 
-    # Every stored file: raw, decompressed .zst (header and text) and site data.
+    # Every stored file raw, every blob decompressed (header and text), and site data. Parquet parts are
+    # zstd-compressed, so tables are checked row by row below.
     needles = (SECRET.encode(), SECRET[:8].encode())
     seen = set()
     for p in [*isolated_data.rglob("*"), *site.rglob("*")]:
         if p.is_file():
             seen.add(p.suffix)
             data = p.read_bytes()
-            if p.suffix == ".zst":
-                data = zstandard.ZstdDecompressor().decompress(data)
             for n in needles:
                 assert n not in data, p
-    assert {".zst", ".parquet"} <= seen  # the scan saw stored blobs and tables
+    blobs = sqlite3.connect(next(isolated_data.rglob("blobs.sqlite"))).execute("SELECT oid, data FROM blobs").fetchall()
+    assert blobs and {".sqlite", ".parquet"} <= seen  # the scan saw stored blobs and tables
+    for oid, data in blobs:
+        for n in needles:
+            assert n not in zstandard.ZstdDecompressor().decompress(data), oid
     ctx = make_ctx("fixture")
     assert any(r["rule"] == "assigned_secret" for r in ctx.tables.read("redactions"))
     for t in SCHEMAS:

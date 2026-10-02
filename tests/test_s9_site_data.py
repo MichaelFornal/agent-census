@@ -35,7 +35,7 @@ def test_card_clips_to_25_lines_and_re_redacts(ctx):
     secret = "ghp_" + "A1b2C3d4E5" * 4
     text = "\n".join([f"line {i}" for i in range(1, 41)] + [f"token {secret}"])
     oid = "ab" * 20
-    atomic_write(ctx.blobs.path(oid), zstandard.ZstdCompressor().compress(text.encode()))  # bypass put()
+    ctx.blobs._put_bytes(oid, zstandard.ZstdCompressor().compress(text.encode()))  # bypass put()
     art = {"repo": "o/r", "path": "CLAUDE.md", "kind": "claude_md", "blob_sha": oid}
     c = s9.card(ctx, {"head_oid": "h"}, art, 30, 100, False)
     assert c["excerpt"].splitlines()[0] == "line 30" and len(c["excerpt"].splitlines()) == 12

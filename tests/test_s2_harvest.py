@@ -523,4 +523,4 @@ def test_census_blobs_moves_the_blob_store(tmp_path, monkeypatch):
     monkeypatch.setenv("CENSUS_BLOBS", str(tmp_path / "elsewhere"))
     ctx = make_ctx("test")
     ctx.blobs.put("ab" * 20, "hello\n")
-    assert (tmp_path / "elsewhere" / "ab" / ("ab" * 20 + ".zst")).exists()
+    assert (tmp_path / "elsewhere" / "blobs.sqlite").exists()

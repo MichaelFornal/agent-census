@@ -96,6 +96,7 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_parser("freeze", parents=[common])
     sub.add_parser("labels", parents=[common])
     sub.add_parser("reredact", parents=[common])
+    sub.add_parser("pack-blobs", help="move the one-file-per-blob store into blobs.sqlite (once per blob volume)")
     a = sub.add_parser("audit", parents=[common])
     a.add_argument("stage", choices=[*STAGE_TABLES])
     s = sub.add_parser("supervise", parents=[common])
@@ -131,6 +132,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.reset and args.stage in STAGE_TABLES:
             reset(ctx, args.stage)
         return 2 if run_stage(args.stage, ctx, opts).stopped else 0
+    if args.cmd == "pack-blobs":  # the blob root is shared by every edition
+        from pipeline.paths import blob_root
+        from pipeline.store import pack_legacy
+        packed, already = pack_legacy(blob_root())
+        print(f"packed {packed} blobs into {blob_root() / 'blobs.sqlite'}; {already} were already packed")
+        return 0
     ctx = make_ctx(args.edition)
     if args.cmd == "status":
         status(ctx)

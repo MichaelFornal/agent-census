@@ -99,14 +99,21 @@ flight.
 ## Disk
 
 - **S1** wrote 2,212 hits in a few hundred KB in the rehearsal; the full walk is a few million hits.
-- **S2 tables** need about 18 KB of Parquet per repo on the data volume (`docs/m2/rehearsal.md`): about
-  18 GiB for a million repos. **Nothing checks this volume.**
-- **Blobs** need an estimated 35–80 GiB. S2 stops by itself when less than 5 GiB is free on the blob volume.
+- **S2 tables** needed about 18 KB of snappy Parquet per repo in the rehearsal (`docs/m2/rehearsal.md`).
+  Parts are now written with zstd, 43% smaller on `harness_files`: about 10 GiB for a million repos.
+  **Nothing checks this volume.**
+- **Blobs** live in one SQLite file, `blobs.sqlite`, in the blob root. Measured on 2026-10-02: 10–97 KB of
+  compressed blob per repo (preview-oct at the low end, the all-family rehearsal at the high end), stored at
+  1.2x that on disk. The earlier one-file-per-blob layout cost 2.1x in 4 KiB blocks. S2 stops by itself when
+  less than 5 GiB is free on the blob volume.
+- **A blob root still in the old layout** (`<root>/<oid[:2]>/<oid>.zst`) is refused until it is packed:
+  `uv run census pack-blobs`. Packing keeps every blob's redaction version and counts, deletes files only
+  after their rows commit, and finishes on a rerun if it is killed.
 
 To put the blob store on another volume, set `CENSUS_BLOBS` in the environment of every `census` command:
 
 ```bash
-rsync -a $CENSUS_DATA/blobs/ /Volumes/<volume>/census-blobs/     # the M1 and rehearsal blobs
+rsync -a $CENSUS_DATA/blobs/ /Volumes/<volume>/census-blobs/     # with every supervisor stopped
 export CENSUS_BLOBS=/Volumes/<volume>/census-blobs
 uv run census supervise s2 --edition fall-2026 --detach
 ```
