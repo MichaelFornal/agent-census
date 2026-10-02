@@ -54,6 +54,7 @@ def test_restarts_until_the_stage_exits_zero(ctx):
     sleeps = []
     assert sup.supervise(ctx, "s1", ["--limit", "5"], spawn=spawn, sleep=sleeps.append, min_backoff=1.0) == 0
     assert len(commands) == 3 and commands[0][-6:] == ["run", "s1", "--edition", "test", "--limit", "5"]
+    assert commands[0][1] == "-u"  # unbuffered, so progress reaches the log while the stage runs
     assert sleeps == [1.0, 1.0]  # both failed runs made progress
     log = (ctx.root / "logs" / "s1.log").read_text()
     assert "exit -9" in log and "complete" in log

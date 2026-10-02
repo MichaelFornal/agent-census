@@ -63,7 +63,8 @@ def supervise(ctx: Ctx, stage: str, run_args: list[str], *, spawn: Callable = su
             raise SystemExit(f"{stage} is already supervised by pid {old}")
     atomic_write(pidfile, str(os.getpid()).encode())
     awake = _keep_awake()
-    cmd = [sys.executable, "-m", "pipeline.cli", "run", stage, "--edition", ctx.edition, *run_args]
+    # -u: the child's stdout is the log file, and block buffering held a stage's progress lines back for hours
+    cmd = [sys.executable, "-u", "-m", "pipeline.cli", "run", stage, "--edition", ctx.edition, *run_args]
     backoff = min_backoff
     prior = read_supervisor_state(ctx, stage)
     resumed = {} if prior.get("complete") else prior
